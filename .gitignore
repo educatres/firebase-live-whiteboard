@@ -1,0 +1,11 @@
+node_modules/
+dist/
+.firebase/
+firebase-debug.log*
+database-debug.log*
+.env
+.env.*
+!.env.example
+.DS_Store
+.agents/
+coverage/
