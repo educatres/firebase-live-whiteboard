@@ -29,11 +29,23 @@ export async function resolveBoard(token) {
   return student ? { id: lookup.studentId, ...student } : null;
 }
 export async function bindStudent(studentId, uid) {
-  const result = await runTransaction(ref(database, `students/${studentId}`), (student) => {
-    if (!student || (student.studentUid && student.studentUid !== uid)) return;
-    return { ...student, studentUid: uid, updatedAt: Date.now() };
-  }, { applyLocally: false });
-  return result.committed;
+  const studentRef = ref(database, `students/${studentId}`);
+  let unsubscribe;
+  const ready = new Promise((resolve, reject) => {
+    // Keep the listener active until the transaction finishes so its first
+    // update callback receives the server-backed student instead of null.
+    unsubscribe = onValue(studentRef, resolve, reject);
+  });
+  try {
+    await ready;
+    const result = await runTransaction(studentRef, (student) => {
+      if (!student || (student.studentUid && student.studentUid !== uid)) return;
+      return { ...student, studentUid: uid, updatedAt: Date.now() };
+    }, { applyLocally: false });
+    return result.committed;
+  } finally {
+    unsubscribe?.();
+  }
 }
 export async function updateStudent(studentId, values) { await update(ref(database, `students/${studentId}`), { ...values, updatedAt: Date.now() }); }
 export async function resetBinding(studentId) { await updateStudent(studentId, { studentUid: null }); }
