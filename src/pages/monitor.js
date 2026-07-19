@@ -171,7 +171,7 @@ document.querySelector("#closeReview").onclick = closeReview;
 dialog.addEventListener("cancel", (event) => { event.preventDefault(); closeReview(); });
 dialog.querySelectorAll("button[data-tool]").forEach((button) => button.onclick = () => { dialog.querySelectorAll("button[data-tool]").forEach((item) => item.classList.remove("active")); button.classList.add("active"); reviewEngine?.setTool(button.dataset.tool); });
 document.querySelector("#reviewColor").oninput = (event) => reviewEngine?.setColor(event.target.value);
-document.querySelector("#reviewWidth").oninput = (event) => reviewEngine?.setWidth(event.target.value);
+document.querySelector("#reviewWidth").onchange = (event) => reviewEngine?.setWidth(event.target.value);
 document.querySelector("#backgroundScale").oninput = (event) => {
   const scale = Number(event.target.value);
   document.querySelector("#backgroundScaleLabel").textContent = `${scale}%`;

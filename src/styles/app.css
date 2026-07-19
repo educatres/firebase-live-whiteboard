@@ -618,6 +618,17 @@ dialog form {
   min-width: 36px;
   font-size: 0;
 }
+.board-toolbar label.brush-size-tool {
+  min-width: 82px;
+}
+.brush-size-tool select {
+  min-width: 82px;
+  padding: 0.35rem 0.45rem;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  background: #fff;
+  color: var(--navy);
+}
 .monitor-main {
   padding: 0.7rem 1rem 5rem;
 }

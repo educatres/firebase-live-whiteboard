@@ -170,7 +170,7 @@ function bindToolbar() {
     engine?.setTool(drawingSettings.tool);
   });
   document.querySelector("#colorInput").oninput = (event) => { drawingSettings.color = event.target.value; engine?.setColor(drawingSettings.color); };
-  document.querySelector("#widthInput").oninput = (event) => { drawingSettings.width = event.target.value; engine?.setWidth(drawingSettings.width); };
+  document.querySelector("#widthInput").onchange = (event) => { drawingSettings.width = event.target.value; engine?.setWidth(drawingSettings.width); };
   document.querySelector("#undoBtn").onclick = () => engine?.undo();
   document.querySelector("#redoBtn").onclick = () => engine?.redo();
   document.querySelector("#resetZoomBtn").onclick = () => engine?.resetZoom();

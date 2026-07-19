@@ -96,14 +96,19 @@
         <button data-tool="pen" class="active">✎<span>批注筆</span></button>
         <button data-tool="eraser">⌫<span>橡皮擦</span></button>
         <input id="reviewColor" type="color" value="#ef4444" aria-label="批注顏色" />
-        <input
-          id="reviewWidth"
-          type="range"
-          min="1"
-          max="40"
-          value="5"
-          aria-label="批注粗細"
-        />
+        <label class="brush-size-tool"
+          >筆刷
+          <select id="reviewWidth" aria-label="批注粗細">
+            <option value="1">極細</option>
+            <option value="3">細</option>
+            <option value="5" selected>中</option>
+            <option value="8">粗</option>
+            <option value="12">很粗</option>
+            <option value="20">特粗</option>
+            <option value="30">30 px</option>
+            <option value="40">40 px</option>
+          </select>
+        </label>
         <label class="background-url-tool"
           >Drive 底圖（需開放連結檢視）
           <input id="backgroundUrl" type="url" inputmode="url" placeholder="貼上 Google Drive 圖片分享網址" aria-label="Google Drive 圖片分享網址" title="請先將 Google Drive 圖片設為知道連結的使用者可檢視" />
