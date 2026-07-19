@@ -125,4 +125,16 @@ describe("BoardEngine iPad 指標處理", () => {
     engine.drawStroke(context, { ...stroke, smooth: false });
     expect(context.lineTo).toHaveBeenCalled();
   });
+
+  it("重設縮放時會同步通知便條貼圖層", () => {
+    const engine = createEngine();
+    engine.scale = 2;
+    engine.panX = 20;
+    engine.panY = 10;
+    engine.onViewChange = vi.fn();
+
+    engine.resetZoom();
+
+    expect(engine.onViewChange).toHaveBeenCalledWith({ scale: 1, panX: 0, panY: 0 });
+  });
 });
