@@ -18,6 +18,20 @@ export async function listMyClasses(uid) {
   const entries = await Promise.all(Object.keys(index).map(async (classId) => [classId, (await get(ref(database, `classes/${classId}`))).val()]));
   return entries.filter(([, value]) => value).map(([id, value]) => ({ id, ...value })).sort((a,b) => b.updatedAt-a.updatedAt);
 }
+export async function listAllClasses() {
+  const value = (await get(ref(database, "publicClasses"))).val() || {};
+  return Object.entries(value).map(([id, classroom]) => ({ id, ...classroom })).sort((a,b) => b.updatedAt-a.updatedAt);
+}
+export function publicClassroom(classroom) {
+  const createdAt = Number(classroom.createdAt);
+  return { title: classroom.title, className: classroom.className || "", createdAt, expiresAt: Number(classroom.expiresAt) || createdAt + CLASSROOM_TTL_MS, updatedAt: classroom.updatedAt, status: classroom.status, studentCount: classroom.studentCount || 0 };
+}
+export async function syncClassroomDirectory(classId, classroom) {
+  await set(ref(database, `publicClasses/${classId}`), publicClassroom(classroom));
+}
+export async function syncClassroomDirectories(classrooms = []) {
+  await Promise.all(classrooms.map((classroom) => syncClassroomDirectory(classroom.id, classroom)));
+}
 export async function getClassroom(classId) { return (await get(ref(database, `classes/${classId}`))).val(); }
 export async function getClassroomExpiresAt(classId) {
   const [expirationSnapshot, createdSnapshot] = await Promise.all([get(ref(database, `classes/${classId}/expiresAt`)), get(ref(database, `classes/${classId}/createdAt`))]);
@@ -62,6 +76,7 @@ export async function deleteClassroom(classId, uid, classroom, students) {
     changes[`activeStrokes/${student.boardToken}`] = null;
   });
   await update(ref(database), changes);
+  await set(ref(database, `publicClasses/${classId}`), null);
   recordClassroomDeleted(classId);
 }
 export async function cleanupExpiredClassroom(classId, uid, classroom, knownStudents) {

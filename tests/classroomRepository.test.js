@@ -8,7 +8,7 @@ vi.mock("firebase/database", () => databaseMocks);
 vi.mock("../src/firebase/config.js", () => ({ database: {} }));
 vi.mock("../src/utils/random.js", () => ({ randomId: () => "class-1", teacherAccessKey: () => "123456" }));
 
-import { cleanupExpiredClassroom, createClassroom, deleteClassroom, getClassroomExpiresAt } from "../src/firebase/classroomRepository.js";
+import { cleanupExpiredClassroom, createClassroom, deleteClassroom, getClassroomExpiresAt, listAllClasses, syncClassroomDirectory } from "../src/firebase/classroomRepository.js";
 import { CLASSROOM_TTL_MS, setServerTimeOffset } from "../src/utils/classroomExpiration.js";
 
 describe("課程建立與到期清理", () => {
@@ -36,6 +36,21 @@ describe("課程建立與到期清理", () => {
     await expect(getClassroomExpiresAt("class-1")).resolves.toBe(5_000 + CLASSROOM_TTL_MS);
   });
 
+  it("讀取並依更新時間排序系統課程目錄", async () => {
+    databaseMocks.get.mockResolvedValueOnce({ val: () => ({ older: { title: "舊課程", updatedAt: 10 }, newer: { title: "新課程", updatedAt: 20 } }) });
+    await expect(listAllClasses()).resolves.toEqual([
+      { id: "newer", title: "新課程", updatedAt: 20 },
+      { id: "older", title: "舊課程", updatedAt: 10 }
+    ]);
+    expect(databaseMocks.get).toHaveBeenCalledWith("publicClasses");
+  });
+
+  it("只同步公開課程欄位", async () => {
+    const classroom = { title: "數學課", className: "六甲", activityName: "不可公開", createdAt: 1, expiresAt: 2, updatedAt: 3, status: "active", studentCount: 4, admins: { teacher: true } };
+    await syncClassroomDirectory("class-1", classroom);
+    expect(databaseMocks.set).toHaveBeenCalledWith("publicClasses/class-1", { title: "數學課", className: "六甲", createdAt: 1, expiresAt: 2, updatedAt: 3, status: "active", studentCount: 4 });
+  });
+
   it("既有較長 expiresAt 仍套用 3 小時上限", async () => {
     databaseMocks.get.mockResolvedValueOnce({ val: () => 5_000 + 48 * 60 * 60 * 1000 }).mockResolvedValueOnce({ val: () => 5_000 });
     await expect(getClassroomExpiresAt("class-1")).resolves.toBe(5_000 + CLASSROOM_TTL_MS);
@@ -56,6 +71,7 @@ describe("課程建立與到期清理", () => {
       "teacherInvites/invite-token": null,
       "displays/display-token": null
     });
+    expect(databaseMocks.set).toHaveBeenCalledWith("publicClasses/class-1", null);
   });
 
   it("刪除課堂時略過不存在或不屬於該課堂的關聯路徑", async () => {

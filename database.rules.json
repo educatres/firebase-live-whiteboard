@@ -45,6 +45,21 @@
         "$other": { ".validate": false }
       }
     },
+    "publicClasses": {
+      ".read": "auth != null",
+      "$classId": {
+        ".write": "auth != null && ((!newData.exists() && (!root.child('classes').child($classId).exists() || root.child('classes').child($classId).child('admins').child(auth.uid).val() === true)) || (newData.exists() && root.child('classes').child($classId).child('admins').child(auth.uid).val() === true && ((root.child('classes').child($classId).child('expiresAt').isNumber() && root.child('classes').child($classId).child('expiresAt').val() > now) || (!root.child('classes').child($classId).child('expiresAt').exists() && root.child('classes').child($classId).child('createdAt').val() + 10800000 > now))))",
+        ".validate": "!newData.exists() || newData.hasChildren(['title','className','createdAt','expiresAt','updatedAt','status','studentCount'])",
+        "title": { ".validate": "newData.isString() && newData.val() === root.child('classes').child($classId).child('title').val()" },
+        "className": { ".validate": "newData.isString() && newData.val() === root.child('classes').child($classId).child('className').val()" },
+        "createdAt": { ".validate": "newData.isNumber() && newData.val() === root.child('classes').child($classId).child('createdAt').val()" },
+        "expiresAt": { ".validate": "newData.isNumber() && ((root.child('classes').child($classId).child('expiresAt').isNumber() && newData.val() === root.child('classes').child($classId).child('expiresAt').val()) || (!root.child('classes').child($classId).child('expiresAt').exists() && newData.val() === root.child('classes').child($classId).child('createdAt').val() + 10800000))" },
+        "updatedAt": { ".validate": "newData.isNumber() && newData.val() === root.child('classes').child($classId).child('updatedAt').val()" },
+        "status": { ".validate": "newData.isString() && newData.val() === root.child('classes').child($classId).child('status').val()" },
+        "studentCount": { ".validate": "newData.isNumber() && newData.val() === root.child('classes').child($classId).child('studentCount').val()" },
+        "$other": { ".validate": false }
+      }
+    },
     "userClasses": {
       "$uid": {
         ".read": "auth != null && auth.uid === $uid",
