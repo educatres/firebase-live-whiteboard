@@ -310,14 +310,15 @@ button:disabled {
   box-shadow: var(--shadow);
   font-weight: 750;
 }
-.class-stat-card.active {
+.class-stat-card.created {
   border-color: #a9dcca;
   background: #eefaf5;
   color: #176646;
 }
-.class-stat-card.inactive {
-  background: #f4f7f8;
-  color: #526872;
+.class-stat-card.deleted {
+  border-color: #e7c3c3;
+  background: #fff5f5;
+  color: #8d3535;
 }
 .class-stat-card strong {
   font-size: 2rem;

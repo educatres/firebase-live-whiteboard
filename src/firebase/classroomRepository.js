@@ -2,6 +2,7 @@ import { get, onValue, ref, set, update } from "firebase/database";
 import { database } from "./config.js";
 import { randomId, teacherAccessKey } from "../utils/random.js";
 import { CLASSROOM_TTL_MS, isClassroomExpired, setServerTimeOffset } from "../utils/classroomExpiration.js";
+import { recordClassroomCreated, recordClassroomDeleted } from "../utils/classroomStats.js";
 
 export async function createClassroom(uid, values) {
   const classId = randomId(10); const offset = Number((await get(ref(database, ".info/serverTimeOffset"))).val()) || 0; setServerTimeOffset(offset); const now = Date.now() + offset;
@@ -9,6 +10,7 @@ export async function createClassroom(uid, values) {
   await update(ref(database), { [`classes/${classId}`]: classroom, [`userClasses/${uid}/${classId}`]: true });
   await set(ref(database, `teacherSlots/${classId}/1`), uid);
   await set(ref(database, `teacherKeys/${classId}`), teacherAccessKey());
+  recordClassroomCreated(classId, now);
   return classId;
 }
 export async function listMyClasses(uid) {
@@ -39,13 +41,28 @@ export function watchClassroomExpiresAt(classId, callback, onError) {
 export async function saveClassroom(classId, values) { await update(ref(database, `classes/${classId}`), { ...values, updatedAt: Date.now() }); }
 export async function closeClassroom(classId, closed) { await update(ref(database, `classes/${classId}`), { status: closed ? "closed" : "active", allowStudentWriting: !closed, updatedAt: Date.now() }); }
 export async function setStudentPinned(classId, studentId, pinned) { await set(ref(database, `classes/${classId}/pinnedStudents/${studentId}`), pinned ? true : null); }
+async function readValue(path) { return (await get(ref(database, path))).val(); }
 export async function deleteClassroom(classId, uid, classroom, students) {
+  const inviteTokens = Object.keys(classroom.teacherInviteTokens || {}), displayToken = classroom.displayToken || null;
+  const [invites, display, lookups] = await Promise.all([
+    Promise.all(inviteTokens.map((token) => readValue(`teacherInvites/${token}`))),
+    displayToken ? readValue(`displays/${displayToken}`) : null,
+    Promise.all(students.map((student) => readValue(`boardLookup/${student.boardToken}`)))
+  ]);
   const changes = { [`classes/${classId}`]: null, [`presence/${classId}`]: null, [`teacherSlots/${classId}`]: null, [`teacherKeys/${classId}`]: null, [`teacherKeyClaims/${classId}`]: null, [`teacherClaims/${classId}`]: null };
   for (const adminUid of Object.keys(classroom.admins || { [uid]: true })) changes[`userClasses/${adminUid}/${classId}`] = null;
-  for (const token of Object.keys(classroom.teacherInviteTokens || {})) changes[`teacherInvites/${token}`] = null;
-  if (classroom.displayToken) changes[`displays/${classroom.displayToken}`] = null;
-  for (const student of students) { changes[`students/${student.id}`] = null; changes[`boardLookup/${student.boardToken}`] = null; changes[`boards/${student.boardToken}`] = null; changes[`boardPages/${student.boardToken}`] = null; changes[`activeStrokes/${student.boardToken}`] = null; }
+  inviteTokens.forEach((token, index) => { if (invites[index]?.classId === classId) changes[`teacherInvites/${token}`] = null; });
+  if (displayToken && display?.classId === classId) changes[`displays/${displayToken}`] = null;
+  students.forEach((student, index) => {
+    changes[`students/${student.id}`] = null;
+    if (lookups[index]?.classId !== classId) return;
+    changes[`boardLookup/${student.boardToken}`] = null;
+    changes[`boards/${student.boardToken}`] = null;
+    changes[`boardPages/${student.boardToken}`] = null;
+    changes[`activeStrokes/${student.boardToken}`] = null;
+  });
   await update(ref(database), changes);
+  recordClassroomDeleted(classId);
 }
 export async function cleanupExpiredClassroom(classId, uid, classroom, knownStudents) {
   if (!isClassroomExpired(classroom)) return false;

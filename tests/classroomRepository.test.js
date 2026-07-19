@@ -8,7 +8,7 @@ vi.mock("firebase/database", () => databaseMocks);
 vi.mock("../src/firebase/config.js", () => ({ database: {} }));
 vi.mock("../src/utils/random.js", () => ({ randomId: () => "class-1", teacherAccessKey: () => "123456" }));
 
-import { cleanupExpiredClassroom, createClassroom, getClassroomExpiresAt } from "../src/firebase/classroomRepository.js";
+import { cleanupExpiredClassroom, createClassroom, deleteClassroom, getClassroomExpiresAt } from "../src/firebase/classroomRepository.js";
 import { CLASSROOM_TTL_MS } from "../src/utils/classroomExpiration.js";
 
 describe("課程建立與到期清理", () => {
@@ -40,6 +40,7 @@ describe("課程建立與到期清理", () => {
   it("到期後清除課程與所有主要關聯資料", async () => {
     const classroom = { expiresAt: 1, admins: { teacher: true }, displayToken: "display-token", teacherInviteTokens: { "invite-token": true }, studentOrder: { student: 0 } };
     const students = [{ id: "student", boardToken: "board-token" }];
+    databaseMocks.get.mockImplementation(async (path) => ({ val: () => path.startsWith("teacherInvites/") || path.startsWith("displays/") || path.startsWith("boardLookup/") ? { classId: "class-1" } : null }));
     await expect(cleanupExpiredClassroom("class-1", "teacher", classroom, students)).resolves.toBe(true);
     const changes = databaseMocks.update.mock.calls[0][1];
     expect(changes).toMatchObject({
@@ -51,6 +52,20 @@ describe("課程建立與到期清理", () => {
       "teacherInvites/invite-token": null,
       "displays/display-token": null
     });
+  });
+
+  it("刪除課堂時略過不存在或不屬於該課堂的關聯路徑", async () => {
+    const classroom = { admins: { teacher: true }, displayToken: "stale-display", teacherInviteTokens: { "stale-invite": true } };
+    const students = [{ id: "student", boardToken: "stale-board" }];
+    databaseMocks.get.mockImplementation(async (path) => ({ val: () => path.startsWith("displays/") ? { classId: "other-class" } : null }));
+
+    await expect(deleteClassroom("class-1", "teacher", classroom, students)).resolves.toBeUndefined();
+    const changes = databaseMocks.update.mock.calls[0][1];
+    expect(changes).toMatchObject({ "classes/class-1": null, "students/student": null, "userClasses/teacher/class-1": null });
+    expect(changes).not.toHaveProperty("teacherInvites/stale-invite");
+    expect(changes).not.toHaveProperty("displays/stale-display");
+    expect(changes).not.toHaveProperty("boardLookup/stale-board");
+    expect(changes).not.toHaveProperty("boards/stale-board");
   });
 
   it("未到期時不執行清理", async () => {
