@@ -76,8 +76,9 @@ export async function deleteClassroom(classId, uid, classroom, students) {
     changes[`activeStrokes/${student.boardToken}`] = null;
   });
   await update(ref(database), changes);
-  await set(ref(database, `publicClasses/${classId}`), null);
   recordClassroomDeleted(classId);
+  try { await set(ref(database, `publicClasses/${classId}`), null); }
+  catch (error) { console.error("系統課程清單清理失敗：", error); }
 }
 export async function cleanupExpiredClassroom(classId, uid, classroom, knownStudents) {
   if (!isClassroomExpired(classroom)) return false;

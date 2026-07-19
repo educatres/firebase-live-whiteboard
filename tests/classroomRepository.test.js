@@ -88,6 +88,16 @@ describe("課程建立與到期清理", () => {
     expect(changes).not.toHaveProperty("boards/stale-board");
   });
 
+  it("課堂已刪除時不因公開目錄清理失敗而回報失敗", async () => {
+    const consoleError = vi.spyOn(console, "error").mockImplementation(() => {});
+    databaseMocks.set.mockRejectedValueOnce(new Error("PERMISSION_DENIED"));
+    await expect(deleteClassroom("class-1", "teacher", { admins: { teacher: true } }, [])).resolves.toBeUndefined();
+    expect(databaseMocks.update).toHaveBeenCalledOnce();
+    expect(databaseMocks.set).toHaveBeenCalledWith("publicClasses/class-1", null);
+    expect(consoleError).toHaveBeenCalledOnce();
+    consoleError.mockRestore();
+  });
+
   it("未到期時不執行清理", async () => {
     await expect(cleanupExpiredClassroom("class-1", "teacher", { expiresAt: Date.now() + 60_000 })).resolves.toBe(false);
     expect(databaseMocks.update).not.toHaveBeenCalled();
