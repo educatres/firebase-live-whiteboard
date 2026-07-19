@@ -9,8 +9,15 @@ import { normalizeBoardPages } from "../whiteboard/pages.js";
 import { param } from "../utils/url.js";
 import { explainError, toast } from "../utils/ui.js";
 
-const token = param("display"), black = document.querySelector("#displayBlack"), stage = document.querySelector("#displayStage"), message = document.querySelector("#displayMessage");
-let user, displayOff, engine, stickyNotes, projectionOffs = [], signature = "";
+const token = param("display"), black = document.querySelector("#displayBlack"), stage = document.querySelector("#displayStage"), message = document.querySelector("#displayMessage"), clock = document.querySelector("#displayClock");
+let user, displayOff, engine, stickyNotes, clockTimer, projectionOffs = [], signature = "";
+
+function updateClock() {
+  const now = new Date();
+  clock.textContent = `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
+  clock.dateTime = clock.textContent;
+  clockTimer = setTimeout(updateClock, 60_050 - (Date.now() % 60_000));
+}
 
 function showBlack(text = "") {
   stopProjection();
@@ -70,5 +77,6 @@ async function init() {
 }
 
 document.querySelector("#displayBackgroundImage").addEventListener("error", () => toast("題目底圖載入失敗，請通知老師檢查分享權限。", "error"));
-addEventListener("pagehide", () => { displayOff?.(); stopProjection(); });
+addEventListener("pagehide", () => { clearTimeout(clockTimer); displayOff?.(); stopProjection(); });
+updateClock();
 init();
