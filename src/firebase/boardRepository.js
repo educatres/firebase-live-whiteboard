@@ -31,6 +31,16 @@ export async function hasAnyAnswers(token, pageIds = [MAIN_PAGE_ID]) {
   const results = await Promise.all(pageIds.map((pageId) => hasAnswers(token, pageId)));
   return results.some(Boolean);
 }
+export async function getBoardPageLayers(token, pageId = MAIN_PAGE_ID) {
+  const [studentSnapshot, teacherSnapshot] = await Promise.all([
+    get(ref(database, `boards/${token}/${boardLayerPath(pageId, "studentStrokes")}`)),
+    get(ref(database, `boards/${token}/${boardLayerPath(pageId, "teacherStrokes")}`))
+  ]);
+  return {
+    studentStrokes: Object.values(studentSnapshot.val() || {}),
+    teacherStrokes: Object.values(teacherSnapshot.val() || {})
+  };
+}
 export async function createStickyNote(token, note, pageId = MAIN_PAGE_ID) {
   const target = push(ref(database, `boards/${token}/${boardLayerPath(pageId, "stickyNotes")}`));
   const now = Date.now();
