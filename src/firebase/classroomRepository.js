@@ -18,6 +18,7 @@ export async function getClassroom(classId) { return (await get(ref(database, `c
 export function watchClassroom(classId, callback) { return onValue(ref(database, `classes/${classId}`), (snap) => callback(snap.val())); }
 export async function saveClassroom(classId, values) { await update(ref(database, `classes/${classId}`), { ...values, updatedAt: Date.now() }); }
 export async function closeClassroom(classId, closed) { await update(ref(database, `classes/${classId}`), { status: closed ? "closed" : "active", allowStudentWriting: !closed, updatedAt: Date.now() }); }
+export async function setStudentPinned(classId, studentId, pinned) { await set(ref(database, `classes/${classId}/pinnedStudents/${studentId}`), pinned ? true : null); }
 export async function deleteClassroom(classId, uid, classroom, students) {
   const changes = { [`classes/${classId}`]: null, [`userClasses/${uid}/${classId}`]: null, [`presence/${classId}`]: null, [`teacherSlots/${classId}`]: null };
   for (const student of students) { changes[`students/${student.id}`] = null; changes[`boardLookup/${student.boardToken}`] = null; changes[`boards/${student.boardToken}`] = null; changes[`activeStrokes/${student.boardToken}`] = null; }

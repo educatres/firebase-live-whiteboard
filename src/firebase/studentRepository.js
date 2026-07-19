@@ -57,5 +57,5 @@ export async function regenerateBoard(classId, student) {
   return token;
 }
 export async function deleteStudent(classId, classroom, student) {
-  await update(ref(database), { [`students/${student.id}`]: null, [`classes/${classId}/studentOrder/${student.id}`]: null, [`classes/${classId}/studentCount`]: Math.max(0,(classroom.studentCount||1)-1), [`classes/${classId}/updatedAt`]: Date.now(), [`boardLookup/${student.boardToken}`]: null, [`boards/${student.boardToken}`]: null, [`activeStrokes/${student.boardToken}`]: null, [`presence/${classId}/${student.id}`]: null });
+  await update(ref(database), { [`students/${student.id}`]: null, [`classes/${classId}/studentOrder/${student.id}`]: null, [`classes/${classId}/pinnedStudents/${student.id}`]: null, [`classes/${classId}/studentCount`]: Math.max(0,(classroom.studentCount||1)-1), [`classes/${classId}/updatedAt`]: Date.now(), [`boardLookup/${student.boardToken}`]: null, [`boards/${student.boardToken}`]: null, [`activeStrokes/${student.boardToken}`]: null, [`presence/${classId}/${student.id}`]: null });
 }

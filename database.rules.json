@@ -23,6 +23,9 @@
           }
         },
         "studentOrder": { "$studentId": { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() < 80" } },
+        "pinnedStudents": {
+          "$studentId": { ".validate": "newData.val() === true && root.child('students').child($studentId).child('classId').val() === $classId" }
+        },
         "$other": { ".validate": false }
       }
     },
