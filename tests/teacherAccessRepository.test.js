@@ -11,7 +11,7 @@ const databaseMocks = vi.hoisted(() => ({
 vi.mock("firebase/database", () => databaseMocks);
 vi.mock("../src/firebase/config.js", () => ({ database: {} }));
 
-import { claimTeacherInvite, claimTeacherKey, createTeacherInvite, ensureTeacherAccessKey } from "../src/firebase/teacherAccessRepository.js";
+import { claimTeacherInvite, claimTeacherKey, createTeacherInvite, ensureTeacherAccessKey, getTeacherAccessKey } from "../src/firebase/teacherAccessRepository.js";
 
 describe("跨裝置老師授權", () => {
   beforeEach(() => {
@@ -39,6 +39,12 @@ describe("跨裝置老師授權", () => {
 
     await expect(ensureTeacherAccessKey("class-1")).resolves.toBe("012345");
     expect(databaseMocks.runTransaction).toHaveBeenCalledWith("teacherKeys/class-1", expect.any(Function), { applyLocally: false });
+  });
+
+  it("讀取目前老師有權管理課程的六位數密鑰", async () => {
+    databaseMocks.get.mockResolvedValueOnce({ val: () => "012345" });
+    await expect(getTeacherAccessKey("class-1")).resolves.toBe("012345");
+    expect(databaseMocks.get).toHaveBeenCalledWith("teacherKeys/class-1");
   });
 
   it("使用正確六位數密鑰取得相同管理權限", async () => {

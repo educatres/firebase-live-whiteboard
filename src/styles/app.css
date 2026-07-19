@@ -327,6 +327,20 @@ button:disabled {
 .all-class-info h3 {
   overflow-wrap: anywhere;
 }
+.all-class-debug {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  margin-top: 0.7rem;
+}
+.all-class-debug .button-link {
+  padding: 0.45rem 0.7rem;
+  font-size: 0.85rem;
+}
+.debug-key {
+  font-variant-numeric: tabular-nums;
+}
 .all-class-list .empty,
 .all-class-list > .muted {
   margin: 0;

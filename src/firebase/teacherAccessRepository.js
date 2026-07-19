@@ -4,6 +4,12 @@ import { boardToken, teacherAccessKey } from "../utils/random.js";
 
 const INVITE_TTL_MS = 10 * 60 * 1000;
 
+export async function getTeacherAccessKey(classId) {
+  const key = (await get(ref(database, `teacherKeys/${classId}`))).val();
+  if (!/^\d{6}$/.test(key || "")) throw new Error("無法讀取老師密鑰。");
+  return key;
+}
+
 export async function ensureTeacherAccessKey(classId) {
   const result = await runTransaction(ref(database, `teacherKeys/${classId}`), (current) => current || teacherAccessKey(), { applyLocally: false });
   const key = result.snapshot.val();
