@@ -3,13 +3,14 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const mocks = vi.hoisted(() => ({
   auth: { currentUser: null, authStateReady: vi.fn() },
   signInAnonymously: vi.fn(),
-  setPersistence: vi.fn()
+  setPersistence: vi.fn(),
+  signOut: vi.fn()
 }));
 
-vi.mock("firebase/auth", () => ({ browserLocalPersistence: "LOCAL", setPersistence: mocks.setPersistence, signInAnonymously: mocks.signInAnonymously }));
+vi.mock("firebase/auth", () => ({ browserLocalPersistence: "LOCAL", setPersistence: mocks.setPersistence, signInAnonymously: mocks.signInAnonymously, signOut: mocks.signOut }));
 vi.mock("../src/firebase/config.js", () => ({ auth: mocks.auth }));
 
-import { ensureAnonymousUser } from "../src/firebase/auth.js";
+import { ensureAnonymousUser, ensureFreshAnonymousUser } from "../src/firebase/auth.js";
 
 describe("匿名老師驗證持久化", () => {
   beforeEach(() => {
@@ -17,6 +18,7 @@ describe("匿名老師驗證持久化", () => {
     mocks.auth.authStateReady.mockReset();
     mocks.signInAnonymously.mockReset();
     mocks.setPersistence.mockReset().mockResolvedValue();
+    mocks.signOut.mockReset().mockImplementation(async () => { mocks.auth.currentUser = null; });
   });
 
   it("先等待瀏覽器本機驗證恢復，不建立新的匿名身分", async () => {
@@ -34,6 +36,19 @@ describe("匿名老師驗證持久化", () => {
     mocks.signInAnonymously.mockResolvedValue({ user: created });
 
     await expect(ensureAnonymousUser()).resolves.toBe(created);
+    expect(mocks.signInAnonymously).toHaveBeenCalledWith(mocks.auth);
+  });
+
+  it("建立課堂前遇到失效 token 時自動更新匿名身分", async () => {
+    const stale = { uid: "stale-teacher", getIdToken: vi.fn().mockRejectedValue({ code: "auth/invalid-user-token" }) };
+    const renewed = { uid: "renewed-teacher", getIdToken: vi.fn().mockResolvedValue("valid-token") };
+    mocks.auth.currentUser = stale;
+    mocks.auth.authStateReady.mockResolvedValue();
+    mocks.signInAnonymously.mockResolvedValue({ user: renewed });
+
+    await expect(ensureFreshAnonymousUser()).resolves.toBe(renewed);
+    expect(stale.getIdToken).toHaveBeenCalledWith(true);
+    expect(mocks.signOut).toHaveBeenCalledWith(mocks.auth);
     expect(mocks.signInAnonymously).toHaveBeenCalledWith(mocks.auth);
   });
 });
