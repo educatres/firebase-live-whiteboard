@@ -7,6 +7,7 @@
 - Firebase Anonymous Authentication 與 Realtime Database 即時同步
 - 老師建立課堂、批次匯入最多 80 位學生、QR Code 與 CSV 連結
 - 學生首次開啟連結後綁定匿名裝置，可由老師解除
+- 學生只需開啟個人專屬網址即可綁定，不使用老師六位數密鑰
 - 三層 Retina Canvas、Pointer Events、Apple Pencil 壓力、整筆橡皮擦
 - 本機復原/重做、雙指 25%～400% 縮放與拖曳
 - 4:3 固定白板比例，4／6／8／12 格即時監看、釘選優先排序、搜尋/篩選/輪播、全螢幕批注

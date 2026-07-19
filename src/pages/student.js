@@ -83,7 +83,7 @@ function openPage(pageId, updatePresence = true) {
         setSync("已同步", "synced");
       } catch (error) {
         setSync("同步失敗", "error");
-        toast(explainError(error), "error");
+        toast(explainError(error, "student"), "error");
       }
     },
     onRemove: async (id) => {
@@ -157,7 +157,7 @@ async function init() {
     setSync("已同步", "synced");
     bindToolbar();
   } catch (error) {
-    setMessage(explainError(error));
+    setMessage(explainError(error, "student"));
     setSync("開啟失敗", "error");
   }
 }
