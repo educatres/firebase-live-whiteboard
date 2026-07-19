@@ -1,5 +1,5 @@
 import { initializeApp } from "firebase/app";
-import { getAuth, connectAuthEmulator } from "firebase/auth";
+import { browserLocalPersistence, connectAuthEmulator, initializeAuth } from "firebase/auth";
 import { getDatabase, connectDatabaseEmulator } from "firebase/database";
 
 const firebaseConfig = {
@@ -14,7 +14,7 @@ const missing = Object.entries(firebaseConfig).filter(([, value]) => !value).map
 if (missing.length) throw new Error(`Firebase 尚未設定：${missing.join("、")}`);
 
 const app = initializeApp(firebaseConfig);
-const auth = getAuth(app);
+const auth = initializeAuth(app, { persistence: browserLocalPersistence });
 const database = getDatabase(app);
 
 if (import.meta.env.DEV && import.meta.env.VITE_USE_FIREBASE_EMULATORS === "true") {
