@@ -1,4 +1,4 @@
-export const GRID_SIZES = [4, 6, 8];
+export const GRID_SIZES = [4, 6, 8, 12];
 
 export function normalizeGridSize(value) {
   const size = Number(value);

@@ -470,6 +470,9 @@ dialog form {
 .monitor-grid[data-size="8"] {
   --grid-columns: 4;
 }
+.monitor-grid[data-size="12"] {
+  --grid-columns: 6;
+}
 .preview-card {
   position: relative;
   background: #fff;
@@ -559,6 +562,11 @@ dialog form {
 .prose h1 {
   font-size: 2.4rem;
 }
+@media (max-width: 1200px) {
+  .monitor-grid[data-size="12"] {
+    --grid-columns: 4;
+  }
+}
 @media (max-width: 800px) {
   .hero {
     grid-template-columns: 1fr;
@@ -579,7 +587,8 @@ dialog form {
   }
   .monitor-grid,
   .monitor-grid[data-size="6"],
-  .monitor-grid[data-size="8"] {
+  .monitor-grid[data-size="8"],
+  .monitor-grid[data-size="12"] {
     --grid-columns: 2;
     gap: 0.4rem;
   }

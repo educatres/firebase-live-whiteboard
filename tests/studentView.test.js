@@ -4,8 +4,8 @@ import { normalizeGridSize, paginateStudents, prioritizePinned } from "../src/mo
 const students = Array.from({ length: 10 }, (_, index) => ({ id: `student-${index + 1}` }));
 
 describe("多格監看排序", () => {
-  it("支援 4、6、8 格並拒絕其他數量", () => {
-    expect([4, 6, 8].map(normalizeGridSize)).toEqual([4, 6, 8]);
+  it("支援 4、6、8、12 格並拒絕其他數量", () => {
+    expect([4, 6, 8, 12].map(normalizeGridSize)).toEqual([4, 6, 8, 12]);
     expect(normalizeGridSize(5)).toBe(4);
   });
 
