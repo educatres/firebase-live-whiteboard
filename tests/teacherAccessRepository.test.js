@@ -24,19 +24,21 @@ describe("跨裝置老師授權", () => {
   it("建立 10 分鐘有效的單次邀請", async () => {
     const before = Date.now();
     const invite = await createTeacherInvite("class-1", "teacher-1");
-    const saved = databaseMocks.set.mock.calls[0][1];
+    const changes = databaseMocks.update.mock.calls[0][1];
+    const saved = changes[`teacherInvites/${invite.token}`];
 
     expect(invite.token).toMatch(/^[A-Za-z0-9_-]{24}$/);
     expect(saved).toMatchObject({ classId: "class-1", createdBy: "teacher-1" });
     expect(saved.expiresAt - saved.createdAt).toBe(10 * 60 * 1000);
     expect(saved.createdAt).toBeGreaterThanOrEqual(before);
+    expect(changes[`classes/class-1/teacherInviteTokens/${invite.token}`]).toBe(true);
   });
 
   it("五台老師裝置已滿時不再產生邀請", async () => {
     databaseMocks.get.mockImplementation(async (path) => ({ val: () => path.endsWith("/admins") ? { a: true, b: true, c: true, d: true, e: true } : { 1: "a", 2: "b", 3: "c", 4: "d", 5: "e" } }));
 
     await expect(createTeacherInvite("class-1", "teacher-1")).rejects.toThrow("5 台老師裝置上限");
-    expect(databaseMocks.set).not.toHaveBeenCalled();
+    expect(databaseMocks.update).not.toHaveBeenCalled();
   });
 
   it("建立或讀取六位數老師密鑰", async () => {
@@ -79,7 +81,8 @@ describe("跨裝置老師授權", () => {
     expect(databaseMocks.set).toHaveBeenNthCalledWith(3, "userClasses/monitor-1/class-1", true);
     expect(databaseMocks.update).toHaveBeenCalledWith("", {
       "teacherClaims/class-1/monitor-1": null,
-      [`teacherInvites/${token}`]: null
+      [`teacherInvites/${token}`]: null,
+      [`classes/class-1/teacherInviteTokens/${token}`]: null
     });
   });
 

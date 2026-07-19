@@ -1,10 +1,11 @@
-import { get, onValue, ref, remove, set, update } from "firebase/database";
+import { get, onValue, ref, set, update } from "firebase/database";
 import { database } from "./config.js";
 import { randomId, teacherAccessKey } from "../utils/random.js";
+import { CLASSROOM_TTL_MS, isClassroomExpired, setServerTimeOffset } from "../utils/classroomExpiration.js";
 
 export async function createClassroom(uid, values) {
-  const classId = randomId(10); const now = Date.now();
-  const classroom = { title: values.title.trim(), className: values.className?.trim() || "", activityName: values.activityName?.trim() || "", createdAt: now, updatedAt: now, status: "active", allowStudentWriting: true, allowStudentClear: false, showTeacherAnnotations: true, studentCount: 0, admins: { [uid]: true }, studentOrder: {}, boardPages: { main: { id: "main", order: 0, createdAt: now, createdBy: uid } } };
+  const classId = randomId(10); const offset = Number((await get(ref(database, ".info/serverTimeOffset"))).val()) || 0; setServerTimeOffset(offset); const now = Date.now() + offset;
+  const classroom = { title: values.title.trim(), className: values.className?.trim() || "", activityName: values.activityName?.trim() || "", createdAt: now, expiresAt: now + CLASSROOM_TTL_MS, updatedAt: now, status: "active", allowStudentWriting: true, allowStudentClear: false, showTeacherAnnotations: true, studentCount: 0, admins: { [uid]: true }, studentOrder: {}, boardPages: { main: { id: "main", order: 0, createdAt: now, createdBy: uid } } };
   await update(ref(database), { [`classes/${classId}`]: classroom, [`userClasses/${uid}/${classId}`]: true });
   await set(ref(database, `teacherSlots/${classId}/1`), uid);
   await set(ref(database, `teacherKeys/${classId}`), teacherAccessKey());
@@ -16,14 +17,31 @@ export async function listMyClasses(uid) {
   return entries.filter(([, value]) => value).map(([id, value]) => ({ id, ...value })).sort((a,b) => b.updatedAt-a.updatedAt);
 }
 export async function getClassroom(classId) { return (await get(ref(database, `classes/${classId}`))).val(); }
+export async function getClassroomExpiresAt(classId) {
+  const expiresAt = (await get(ref(database, `classes/${classId}/expiresAt`))).val();
+  if (expiresAt) return expiresAt;
+  const createdAt = (await get(ref(database, `classes/${classId}/createdAt`))).val();
+  return createdAt ? Number(createdAt) + CLASSROOM_TTL_MS : null;
+}
 export function watchClassroom(classId, callback, onError) { return onValue(ref(database, `classes/${classId}`), (snap) => callback(snap.val()), onError); }
+export function watchClassroomExpiresAt(classId, callback, onError) { return onValue(ref(database, `classes/${classId}/expiresAt`), (snap) => callback(snap.val()), onError); }
 export async function saveClassroom(classId, values) { await update(ref(database, `classes/${classId}`), { ...values, updatedAt: Date.now() }); }
 export async function closeClassroom(classId, closed) { await update(ref(database, `classes/${classId}`), { status: closed ? "closed" : "active", allowStudentWriting: !closed, updatedAt: Date.now() }); }
 export async function setStudentPinned(classId, studentId, pinned) { await set(ref(database, `classes/${classId}/pinnedStudents/${studentId}`), pinned ? true : null); }
 export async function deleteClassroom(classId, uid, classroom, students) {
-  const changes = { [`classes/${classId}`]: null, [`presence/${classId}`]: null, [`teacherSlots/${classId}`]: null, [`teacherKeys/${classId}`]: null, [`teacherKeyClaims/${classId}`]: null };
+  const changes = { [`classes/${classId}`]: null, [`presence/${classId}`]: null, [`teacherSlots/${classId}`]: null, [`teacherKeys/${classId}`]: null, [`teacherKeyClaims/${classId}`]: null, [`teacherClaims/${classId}`]: null };
   for (const adminUid of Object.keys(classroom.admins || { [uid]: true })) changes[`userClasses/${adminUid}/${classId}`] = null;
+  for (const token of Object.keys(classroom.teacherInviteTokens || {})) changes[`teacherInvites/${token}`] = null;
   if (classroom.displayToken) changes[`displays/${classroom.displayToken}`] = null;
   for (const student of students) { changes[`students/${student.id}`] = null; changes[`boardLookup/${student.boardToken}`] = null; changes[`boards/${student.boardToken}`] = null; changes[`boardPages/${student.boardToken}`] = null; changes[`activeStrokes/${student.boardToken}`] = null; }
   await update(ref(database), changes);
+}
+export async function cleanupExpiredClassroom(classId, uid, classroom, knownStudents) {
+  if (!isClassroomExpired(classroom)) return false;
+  const students = knownStudents || (await Promise.all(Object.keys(classroom.studentOrder || {}).map(async (id) => {
+    const value = (await get(ref(database, `students/${id}`))).val();
+    return value ? { id, ...value } : null;
+  }))).filter(Boolean);
+  await deleteClassroom(classId, uid, classroom, students);
+  return true;
 }

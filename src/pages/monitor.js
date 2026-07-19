@@ -1,5 +1,5 @@
 import { ensureAnonymousUser } from "../firebase/auth.js";
-import { setStudentPinned, watchClassroom } from "../firebase/classroomRepository.js";
+import { cleanupExpiredClassroom, setStudentPinned, watchClassroom } from "../firebase/classroomRepository.js";
 import { getStudents, updateStudent } from "../firebase/studentRepository.js";
 import { clearLayer, createStickyNote, hasAnyAnswers, markBoardActivity, removeStickyNote, removeStroke, saveStroke, subscribeLayer, subscribeStickyNotes, updateStickyNote, watchBoardMeta } from "../firebase/boardRepository.js";
 import { insertClassBoardPage, setClassPageBackground } from "../firebase/pageRepository.js";
@@ -13,6 +13,7 @@ import { normalizeGridSize, paginateStudents, prioritizePinned } from "../monito
 import { boardPagesMap, normalizeBoardPages, selectMonitoredPage } from "../whiteboard/pages.js";
 import { setBackgroundViewport, showBackgroundImage } from "../whiteboard/backgroundImage.js";
 import { param } from "../utils/url.js";
+import { isClassroomExpired, watchClassroomExpiry } from "../utils/classroomExpiration.js";
 import { confirmAction, explainError, toast } from "../utils/ui.js";
 
 const classId = param("class"), inviteToken = param("invite");
@@ -21,7 +22,7 @@ const monitorToolbar = document.querySelector("#monitorToolbar"), showMonitorToo
 let user, classroom, students = [], presence = {}, page = 0, gridSize = loadGridSize(), teacherSmoothing = loadTeacherSmoothing();
 let previewOffs = [], previewObservers = [], reviewOffs = [], reviewEngine, reviewStickyNotes, currentStudent, currentReviewPageId;
 let boardMetaOffs = [], boardMetaRenderFrame, lastTeacherActivityAt = 0, lastTeacherActivityPageId = "";
-let rotateTimer, presenceOff, presenceRenderKey = "";
+let rotateTimer, expirationRetryTimer, classOff, expiryOff, presenceOff, presenceRenderKey = "", cleanupStarted = false;
 let displayOff, watchedDisplayToken, displayState, followingPageUpdate = false;
 let backgroundMoveMode = false, backgroundMoveDrag = null, backgroundMoveSaving = false;
 
@@ -147,14 +148,24 @@ async function loadStudents() {
   } catch (error) { state.textContent = explainError(error); }
 }
 
+async function expireMonitor(value) {
+  if (cleanupStarted) return;
+  cleanupStarted = true; expiryOff?.(); classOff?.(); presenceOff?.(); displayOff?.(); clearPreviews(); stopReviewPage();
+  boardMetaOffs.forEach((off) => off()); boardMetaOffs = []; grid.hidden = true; monitorToolbar.hidden = true; state.hidden = false; state.textContent = "課程已到期，正在自動清除資料…";
+  try { await cleanupExpiredClassroom(classId, user.uid, value); state.textContent = "課程已到期，資料已自動清除。"; }
+  catch (error) { cleanupStarted = false; state.textContent = `課程已到期，但自動清除失敗：${explainError(error)} 系統將自動重試。`; clearTimeout(expirationRetryTimer); expirationRetryTimer = setTimeout(() => expireMonitor(value), 15000); }
+}
+
 async function init() {
   if (!classId) { state.textContent = "網址缺少課堂編號。"; return; }
   try {
     user = await ensureAnonymousUser();
     if (inviteToken) { state.textContent = "正在授權這台裝置…"; await claimTeacherInvite(classId, inviteToken, user.uid); const cleanUrl = new URL(location.href); cleanUrl.searchParams.delete("invite"); history.replaceState(null, "", cleanUrl); toast("這台裝置已取得老師權限。"); }
-    watchClassroom(classId, (value) => {
+    classOff = watchClassroom(classId, (value) => {
       if (!value) { state.textContent = "課堂不存在或權限不足。"; return; }
+      if (isClassroomExpired(value)) { expireMonitor(value); return; }
       const previousOrder = JSON.stringify(classroom?.studentOrder || {}); classroom = value; document.querySelector("#classTitle").textContent = value.title; connectDisplay(value.displayToken);
+      expiryOff?.(); expiryOff = watchClassroomExpiry(value, { onExpire: () => expireMonitor(value) });
       if (!students.length || previousOrder !== JSON.stringify(value.studentOrder || {})) loadStudents(); else render();
     });
     presenceOff = watchPresence(classId, (value) => {
@@ -329,6 +340,6 @@ for (const id of ["searchInput", "onlineOnly", "answeredOnly"]) document.querySe
 document.querySelectorAll("[data-grid-size]").forEach((button) => button.onclick = () => { gridSize = normalizeGridSize(button.dataset.gridSize); page = 0; try { localStorage.setItem(`classpad-grid-size:${classId}`, String(gridSize)); } catch {} render(); });
 document.querySelector("#prevPage").onclick = () => { page--; render(); }; document.querySelector("#nextPage").onclick = () => { page++; render(); };
 document.querySelector("#autoRotate").onchange = (event) => { clearInterval(rotateTimer); if (event.target.checked) rotateTimer = setInterval(() => { const pages = Math.max(1, Math.ceil(filtered().length / gridSize)); page = (page + 1) % pages; render(); }, 10000); };
-addEventListener("pagehide", () => { clearPreviews(); boardMetaOffs.forEach((off) => off()); presenceOff?.(); displayOff?.(); stopReviewPage(); clearInterval(rotateTimer); });
+addEventListener("pagehide", () => { clearPreviews(); boardMetaOffs.forEach((off) => off()); expiryOff?.(); classOff?.(); presenceOff?.(); displayOff?.(); stopReviewPage(); clearInterval(rotateTimer); clearTimeout(expirationRetryTimer); });
 
 init();

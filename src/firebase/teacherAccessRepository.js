@@ -72,7 +72,7 @@ export async function createTeacherInvite(classId, uid) {
   const token = boardToken();
   const createdAt = Date.now();
   const invite = { classId, createdBy: uid, createdAt, expiresAt: createdAt + INVITE_TTL_MS };
-  await set(ref(database, `teacherInvites/${token}`), invite);
+  await update(ref(database), { [`teacherInvites/${token}`]: invite, [`classes/${classId}/teacherInviteTokens/${token}`]: true });
   return { token, expiresAt: invite.expiresAt };
 }
 
@@ -101,7 +101,7 @@ export async function resetOtherTeacherDevices(classId, uid) {
   for (const [claimUid, token] of Object.entries(claims)) {
     if (claimUid === uid) continue;
     changes[`teacherClaims/${classId}/${claimUid}`] = null;
-    if (typeof token === "string") changes[`teacherInvites/${token}`] = null;
+    if (typeof token === "string") { changes[`teacherInvites/${token}`] = null; changes[`classes/${classId}/teacherInviteTokens/${token}`] = null; }
   }
   for (const claimUid of Object.keys(keyClaims)) {
     if (claimUid !== uid) changes[`teacherKeyClaims/${classId}/${claimUid}`] = null;
@@ -142,7 +142,8 @@ export async function claimTeacherInvite(classId, token, uid) {
   try {
     await update(ref(database), {
       [`teacherClaims/${classId}/${uid}`]: null,
-      [`teacherInvites/${token}`]: null
+      [`teacherInvites/${token}`]: null,
+      [`classes/${classId}/teacherInviteTokens/${token}`]: null
     });
   } catch {
     // Access is already granted. Expired claim artifacts cannot grant another UID.

@@ -1,16 +1,20 @@
 import { ensureAnonymousUser } from "../firebase/auth.js";
 import { subscribeLayer, subscribeStickyNotes } from "../firebase/boardRepository.js";
 import { clearDisplaySession, setDisplaySession, watchDisplay } from "../firebase/displayRepository.js";
+import { getClassroomExpiresAt, watchClassroomExpiresAt } from "../firebase/classroomRepository.js";
+import { watchServerTimeOffset } from "../firebase/connection.js";
 import { watchBoardPages } from "../firebase/pageRepository.js";
 import { BoardEngine } from "../canvas/BoardEngine.js";
 import { StickyNotesLayer } from "../notes/StickyNotesLayer.js";
 import { setBackgroundViewport, showBackgroundImage } from "../whiteboard/backgroundImage.js";
 import { normalizeBoardPages } from "../whiteboard/pages.js";
 import { param } from "../utils/url.js";
+import { isClassroomExpired, watchClassroomExpiry } from "../utils/classroomExpiration.js";
 import { explainError, toast } from "../utils/ui.js";
 
 const token = param("display"), black = document.querySelector("#displayBlack"), stage = document.querySelector("#displayStage"), message = document.querySelector("#displayMessage"), clock = document.querySelector("#displayClock");
-let user, displayOff, engine, stickyNotes, clockTimer, projectionOffs = [], signature = "";
+let user, displayOff, expirationOff, expirationTimerOff, expirationClassId, engine, stickyNotes, clockTimer, projectionOffs = [], signature = "", expired = false;
+const stopServerTime = watchServerTimeOffset();
 
 function updateClock() {
   const now = new Date();
@@ -64,19 +68,43 @@ async function showProjection(state) {
   );
 }
 
+function expireDisplay() {
+  if (expired) return;
+  expired = true; expirationTimerOff?.(); displayOff?.(); showBlack("此課程已滿 48 小時並停止使用，資料將由老師端自動清除。");
+}
+
+async function connectExpiration(classId) {
+  if (expirationClassId === classId) return !expired;
+  expirationClassId = classId; expirationOff?.(); expirationTimerOff?.();
+  const apply = (value) => {
+    if (!value) return;
+    expirationTimerOff?.();
+    const expiration = { expiresAt: Number(value) };
+    if (isClassroomExpired(expiration)) { expireDisplay(); return; }
+    expirationTimerOff = watchClassroomExpiry(expiration, { onExpire: expireDisplay });
+  };
+  apply(await getClassroomExpiresAt(classId));
+  if (expired) return false;
+  expirationOff = watchClassroomExpiresAt(classId, apply, expireDisplay);
+  return true;
+}
+
 async function init() {
   if (!token) return showBlack("展示網址無效。");
   try {
     user = await ensureAnonymousUser();
-    displayOff = watchDisplay(token, (state) => {
-      if (!state) return showBlack("展示網址不存在，請向老師索取新連結。");
-      if (!state.active) { signature = ""; return showBlack(); }
-      showProjection(state).catch((error) => { showBlack("無法載入投影畫面。"); toast(explainError(error), "error"); });
+    displayOff = watchDisplay(token, async (state) => {
+      try {
+        if (!state) return showBlack("展示網址不存在，請向老師索取新連結。");
+        if (!await connectExpiration(state.classId)) return;
+        if (!state.active) { signature = ""; return showBlack(); }
+        showProjection(state).catch((error) => { showBlack("無法載入投影畫面。"); toast(explainError(error), "error"); });
+      } catch (error) { showBlack(explainError(error)); }
     });
   } catch (error) { showBlack(explainError(error)); }
 }
 
 document.querySelector("#displayBackgroundImage").addEventListener("error", () => toast("題目底圖載入失敗，請通知老師檢查分享權限。", "error"));
-addEventListener("pagehide", () => { clearTimeout(clockTimer); displayOff?.(); stopProjection(); });
+addEventListener("pagehide", () => { clearTimeout(clockTimer); stopServerTime(); expirationOff?.(); expirationTimerOff?.(); displayOff?.(); stopProjection(); });
 updateClock();
 init();
