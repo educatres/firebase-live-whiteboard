@@ -1,7 +1,7 @@
 import { ensureAnonymousUser } from "../firebase/auth.js";
 import { setStudentPinned, watchClassroom } from "../firebase/classroomRepository.js";
 import { getStudents, updateStudent } from "../firebase/studentRepository.js";
-import { clearLayer, createStickyNote, hasAnyAnswers, removeStickyNote, removeStroke, saveStroke, subscribeLayer, subscribeStickyNotes, updateStickyNote } from "../firebase/boardRepository.js";
+import { clearLayer, createStickyNote, hasAnyAnswers, markBoardActivity, removeStickyNote, removeStroke, saveStroke, subscribeLayer, subscribeStickyNotes, updateStickyNote, watchBoardMeta } from "../firebase/boardRepository.js";
 import { insertClassBoardPage, setClassPageBackground } from "../firebase/pageRepository.js";
 import { watchPresence } from "../firebase/presenceRepository.js";
 import { watchConnection } from "../firebase/connection.js";
@@ -20,6 +20,7 @@ const grid = document.querySelector("#monitorGrid"), state = document.querySelec
 const monitorToolbar = document.querySelector("#monitorToolbar"), showMonitorToolbar = document.querySelector("#showMonitorToolbar"), smoothingButton = document.querySelector("#toggleSmoothing");
 let user, classroom, students = [], presence = {}, page = 0, gridSize = loadGridSize(), teacherSmoothing = loadTeacherSmoothing();
 let previewOffs = [], previewObservers = [], reviewOffs = [], reviewEngine, reviewStickyNotes, currentStudent, currentReviewPageId;
+let boardMetaOffs = [], boardMetaRenderFrame, lastTeacherActivityAt = 0, lastTeacherActivityPageId = "";
 let rotateTimer, presenceOff, presenceRenderKey = "";
 let displayOff, watchedDisplayToken, displayState, followingPageUpdate = false;
 let backgroundMoveMode = false, backgroundMoveDrag = null, backgroundMoveSaving = false;
@@ -32,6 +33,7 @@ function loadGridSize() { try { return normalizeGridSize(localStorage.getItem(`c
 function loadTeacherSmoothing() { try { return localStorage.getItem("classpad-teacher-smoothing") !== "false"; } catch { return true; } }
 function classPages() { return normalizeBoardPages(classroom?.boardPages); }
 function pageNumber(pageId) { const index = classPages().findIndex((item) => item.id === pageId); return index < 0 ? 1 : index + 1; }
+function monitoredPage(student) { return selectMonitoredPage(presence[student.id], classroom?.boardPages, student.boardMeta); }
 function renderSmoothingButton() { smoothingButton.classList.toggle("active", teacherSmoothing); smoothingButton.setAttribute("aria-pressed", String(teacherSmoothing)); smoothingButton.setAttribute("aria-label", teacherSmoothing ? "關閉手寫平滑" : "開啟手寫平滑"); smoothingButton.querySelector("span").textContent = `平滑：${teacherSmoothing ? "開" : "關"}`; }
 function renderProjectionControls() {
   const active = Boolean(displayState?.active);
@@ -62,7 +64,7 @@ function syncFollowedProjection() {
   if (!displayState?.active || !displayState.followStudent || followingPageUpdate) return;
   const student = students.find((item) => item.id === displayState.studentId);
   if (!student) return;
-  const pageId = selectMonitoredPage(presence[student.id], classroom?.boardPages);
+  const pageId = monitoredPage(student);
   if (pageId === displayState.pageId) return;
   followingPageUpdate = true;
   updateProjectedPage(classroom.displayToken, pageId, user.uid).catch(() => {}).finally(() => { followingPageUpdate = false; });
@@ -106,10 +108,10 @@ function render() {
   document.querySelector("#pageLabel").textContent = `第 ${page + 1} / ${view.pages} 頁`; document.querySelector("#prevPage").disabled = page === 0; document.querySelector("#nextPage").disabled = page >= view.pages - 1;
   state.hidden = visible.length > 0; state.textContent = list.length ? "這一頁沒有學生。" : "沒有符合條件的學生。"; grid.hidden = !visible.length;
   grid.innerHTML = visible.map((student) => {
-    const monitoredPage = selectMonitoredPage(presence[student.id], classroom?.boardPages);
-    student.monitoredPageId = monitoredPage;
+    const latestPage = monitoredPage(student);
+    student.monitoredPageId = latestPage;
     const projecting = displayState?.active && displayState.studentId === student.id;
-    return `<article class="preview-card" data-id="${student.id}"><div class="preview-head"><strong>${escapeHtml(student.seatNumber)} ${escapeHtml(student.displayName)}</strong><span class="preview-actions"><span class="badge">第 ${pageNumber(monitoredPage)} 頁</span><button class="pin-button" aria-label="${pinned[student.id] ? "取消釘選" : "釘選"} ${escapeHtml(student.displayName)}" aria-pressed="${Boolean(pinned[student.id])}">${pinned[student.id] ? "📌 已釘選" : "📌 釘選"}</button><span class="badge ${presence[student.id]?.online ? "online" : "offline"}">${presence[student.id]?.online ? (presence[student.id]?.drawing ? "書寫中" : "在線") : "離線"}</span>${student.locked ? " <span class=\"badge error\">鎖定</span>" : ""}</span></div><div class="preview-board"><img class="board-background-image" alt="題目底圖" hidden><canvas class="preview-canvas"></canvas></div><button class="project-display ${projecting ? "active" : ""}">${projecting ? "投影中" : "投影"}</button><button class="enlarge primary">放大批注</button></article>`;
+    return `<article class="preview-card" data-id="${student.id}"><div class="preview-head"><strong>${escapeHtml(student.seatNumber)} ${escapeHtml(student.displayName)}</strong><span class="preview-actions"><span class="badge">第 ${pageNumber(latestPage)} 頁</span><button class="pin-button" aria-label="${pinned[student.id] ? "取消釘選" : "釘選"} ${escapeHtml(student.displayName)}" aria-pressed="${Boolean(pinned[student.id])}">${pinned[student.id] ? "📌 已釘選" : "📌 釘選"}</button><span class="badge ${presence[student.id]?.online ? "online" : "offline"}">${presence[student.id]?.online ? (presence[student.id]?.drawing ? "書寫中" : "在線") : "離線"}</span>${student.locked ? " <span class=\"badge error\">鎖定</span>" : ""}</span></div><div class="preview-board"><img class="board-background-image" alt="題目底圖" hidden><canvas class="preview-canvas"></canvas></div><button class="project-display ${projecting ? "active" : ""}">${projecting ? "投影中" : "投影"}</button><button class="enlarge primary">放大批注</button></article>`;
   }).join("");
   visible.forEach((student) => {
     const card = grid.querySelector(`[data-id="${student.id}"]`), previewBoard = card.querySelector(".preview-board"), canvas = card.querySelector("canvas"), maps = [new Map(), new Map()], monitoredPage = student.monitoredPageId;
@@ -132,7 +134,18 @@ function render() {
 }
 
 function escapeHtml(value) { const element = document.createElement("div"); element.textContent = value; return element.innerHTML; }
-async function loadStudents() { try { students = await getStudents(classroom); const pageIds = classPages().map((item) => item.id); await Promise.all(students.map(async (student) => { student.hasAnswer = await hasAnyAnswers(student.boardToken, pageIds); })); render(); } catch (error) { state.textContent = explainError(error); } }
+function scheduleBoardMetaRender() {
+  if (boardMetaRenderFrame) return;
+  boardMetaRenderFrame = requestAnimationFrame(() => { boardMetaRenderFrame = null; render(); syncFollowedProjection(); });
+}
+async function loadStudents() {
+  try {
+    boardMetaOffs.forEach((off) => off()); boardMetaOffs = [];
+    students = await getStudents(classroom); const pageIds = classPages().map((item) => item.id);
+    boardMetaOffs = students.map((student) => watchBoardMeta(student.boardToken, (value) => { student.boardMeta = value; scheduleBoardMetaRender(); }));
+    await Promise.all(students.map(async (student) => { student.hasAnswer = await hasAnyAnswers(student.boardToken, pageIds); })); render();
+  } catch (error) { state.textContent = explainError(error); }
+}
 
 async function init() {
   if (!classId) { state.textContent = "網址缺少課堂編號。"; return; }
@@ -146,7 +159,7 @@ async function init() {
     });
     presenceOff = watchPresence(classId, (value) => {
       presence = value;
-      const nextKey = JSON.stringify(Object.entries(value).map(([studentId, item]) => [studentId, item.online, item.drawing, item.currentPageId, item.lastWrittenPageId]));
+      const nextKey = JSON.stringify(Object.entries(value).map(([studentId, item]) => [studentId, item.online, item.drawing, item.currentPageId, item.lastWrittenPageId, item.lastWrittenAt]));
       if (nextKey !== presenceRenderKey) { presenceRenderKey = nextKey; render(); }
       syncFollowedProjection();
     });
@@ -204,6 +217,7 @@ function openReviewPage(pageId) {
     stage: document.querySelector("#reviewStage"), backgroundCanvas: document.querySelector("#reviewBackground"), studentCanvas: document.querySelector("#reviewStudent"), teacherCanvas: document.querySelector("#reviewTeacher"), editableLayer: "teacherStrokes", uid: user.uid,
     onComplete: (stroke) => saveStroke(currentStudent.boardToken, "teacherStrokes", stroke, activePageId).catch((error) => toast(explainError(error), "error")),
     onRemove: (id) => removeStroke(currentStudent.boardToken, "teacherStrokes", id, activePageId).catch((error) => toast(explainError(error), "error")),
+    onActive: (stroke) => { const now = Date.now(); if (stroke && (activePageId !== lastTeacherActivityPageId || now - lastTeacherActivityAt >= 750)) { lastTeacherActivityAt = now; lastTeacherActivityPageId = activePageId; markBoardActivity(currentStudent.boardToken, "teacherStrokes", activePageId).catch(() => {}); } },
     onViewChange: (view) => { reviewStickyNotes?.setViewport(view); setBackgroundViewport(document.querySelector("#reviewBackgroundLayer"), view); }
   });
   reviewEngine = activeEngine; reviewEngine.setSmoothing(teacherSmoothing);
@@ -297,7 +311,7 @@ document.querySelector("#reviewPrevPage").onclick = () => { const pages = classP
 document.querySelector("#reviewNextPage").onclick = () => { const pages = classPages(), index = pages.findIndex((item) => item.id === currentReviewPageId); openReviewPage(pages[Math.min(pages.length - 1, index + 1)].id); };
 document.querySelector("#projectReview").onclick = () => {
   if (!currentStudent) return;
-  const pageId = selectMonitoredPage(presence[currentStudent.id], classroom?.boardPages);
+  const pageId = monitoredPage(currentStudent);
   projectStudent(currentStudent, pageId, true).catch((error) => toast(explainError(error), "error"));
 };
 document.querySelector("#stopProjection").onclick = () => stopCurrentProjection().catch((error) => toast(explainError(error), "error"));
@@ -315,6 +329,6 @@ for (const id of ["searchInput", "onlineOnly", "answeredOnly"]) document.querySe
 document.querySelectorAll("[data-grid-size]").forEach((button) => button.onclick = () => { gridSize = normalizeGridSize(button.dataset.gridSize); page = 0; try { localStorage.setItem(`classpad-grid-size:${classId}`, String(gridSize)); } catch {} render(); });
 document.querySelector("#prevPage").onclick = () => { page--; render(); }; document.querySelector("#nextPage").onclick = () => { page++; render(); };
 document.querySelector("#autoRotate").onchange = (event) => { clearInterval(rotateTimer); if (event.target.checked) rotateTimer = setInterval(() => { const pages = Math.max(1, Math.ceil(filtered().length / gridSize)); page = (page + 1) % pages; render(); }, 10000); };
-addEventListener("pagehide", () => { clearPreviews(); presenceOff?.(); displayOff?.(); stopReviewPage(); clearInterval(rotateTimer); });
+addEventListener("pagehide", () => { clearPreviews(); boardMetaOffs.forEach((off) => off()); presenceOff?.(); displayOff?.(); stopReviewPage(); clearInterval(rotateTimer); });
 
 init();

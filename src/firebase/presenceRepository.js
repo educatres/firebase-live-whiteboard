@@ -1,4 +1,4 @@
-import { onDisconnect, onValue, ref, update } from "firebase/database";
+import { onDisconnect, onValue, ref, serverTimestamp, update } from "firebase/database";
 import { database } from "./config.js";
 
 export async function startPresence(classId, studentId, uid, currentPageId = "main") {
@@ -11,7 +11,7 @@ export async function startPresence(classId, studentId, uid, currentPageId = "ma
 export async function setDrawing(classId, studentId, drawing, pageId) {
   const values = { drawing, lastSeen: Date.now() };
   if (pageId) values.currentPageId = pageId;
-  if (drawing && pageId) values.lastWrittenPageId = pageId;
+  if (drawing && pageId) { values.lastWrittenPageId = pageId; values.lastWrittenAt = serverTimestamp(); }
   await update(ref(database, `presence/${classId}/${studentId}`), values);
 }
 export async function setPresencePage(classId, studentId, pageId) { await update(ref(database, `presence/${classId}/${studentId}`), { currentPageId: pageId, drawing: false, lastSeen: Date.now() }); }

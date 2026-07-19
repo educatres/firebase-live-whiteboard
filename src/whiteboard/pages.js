@@ -52,9 +52,15 @@ export function boardPagesMap(value, fallback = {}) {
   }]));
 }
 
-export function selectMonitoredPage(studentPresence, pagesValue) {
+export function selectMonitoredPage(studentPresence, pagesValue, boardActivity) {
   const pages = normalizeBoardPages(pagesValue);
   const available = new Set(pages.map((page) => page.id));
+  const activityPage = available.has(boardActivity?.lastWrittenPageId) ? boardActivity.lastWrittenPageId : null;
+  const studentPage = available.has(studentPresence?.drawing ? studentPresence.currentPageId : studentPresence?.lastWrittenPageId)
+    ? (studentPresence.drawing ? studentPresence.currentPageId : studentPresence.lastWrittenPageId)
+    : null;
+  if (activityPage && studentPage) return Number(studentPresence?.lastWrittenAt) > Number(boardActivity?.lastWrittenAt) ? studentPage : activityPage;
+  if (activityPage) return activityPage;
   const candidates = studentPresence?.drawing
     ? [studentPresence.currentPageId, studentPresence.lastWrittenPageId]
     : [studentPresence?.lastWrittenPageId, studentPresence?.currentPageId];

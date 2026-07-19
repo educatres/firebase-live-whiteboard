@@ -1,4 +1,4 @@
-import { get, onChildAdded, onChildChanged, onChildRemoved, onValue, push, ref, remove, set, update } from "firebase/database";
+import { get, onChildAdded, onChildChanged, onChildRemoved, onValue, push, ref, remove, serverTimestamp, set, update } from "firebase/database";
 import { database } from "./config.js";
 import { MAIN_PAGE_ID } from "../whiteboard/pages.js";
 
@@ -12,9 +12,14 @@ export function subscribeLayer(token, layer, handlers, pageId = MAIN_PAGE_ID) {
   if (handlers.change) offs.push(onChildChanged(target, (s) => handlers.change(s.key, s.val())));
   return () => offs.forEach((off) => off());
 }
+export function watchBoardMeta(token, callback) { return onValue(ref(database, `boards/${token}/meta`), (snap) => callback(snap.val() || {})); }
+export async function markBoardActivity(token, layer, pageId = MAIN_PAGE_ID) {
+  const timestamp = serverTimestamp();
+  await update(ref(database, `boards/${token}/meta`), { lastWrittenPageId: pageId, lastWrittenAt: timestamp, lastWrittenLayer: layer, updatedAt: timestamp, revision: timestamp });
+}
 export async function saveStroke(token, layer, stroke, pageId = MAIN_PAGE_ID) {
   await set(ref(database, `boards/${token}/${boardLayerPath(pageId, layer)}/${stroke.id}`), stroke);
-  await update(ref(database, `boards/${token}/meta`), { updatedAt: Date.now(), revision: Date.now() });
+  await markBoardActivity(token, layer, pageId);
 }
 export async function removeStroke(token, layer, id, pageId = MAIN_PAGE_ID) { await remove(ref(database, `boards/${token}/${boardLayerPath(pageId, layer)}/${id}`)); }
 export async function clearLayer(token, layer, pageId = MAIN_PAGE_ID) { await remove(ref(database, `boards/${token}/${boardLayerPath(pageId, layer)}`)); }

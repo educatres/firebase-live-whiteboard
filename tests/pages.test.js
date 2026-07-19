@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import { boardPagesMap, insertBoardPage, normalizeBoardPages, selectMonitoredPage } from "../src/whiteboard/pages.js";
 
 vi.mock("firebase/database", () => ({
-  get: vi.fn(), onChildAdded: vi.fn(), onChildChanged: vi.fn(), onChildRemoved: vi.fn(), onValue: vi.fn(), push: vi.fn(), ref: vi.fn(), remove: vi.fn(), set: vi.fn(), update: vi.fn()
+  get: vi.fn(), onChildAdded: vi.fn(), onChildChanged: vi.fn(), onChildRemoved: vi.fn(), onValue: vi.fn(), push: vi.fn(), ref: vi.fn(), remove: vi.fn(), serverTimestamp: vi.fn(() => 123), set: vi.fn(), update: vi.fn()
 }));
 vi.mock("../src/firebase/config.js", () => ({ database: {} }));
 
@@ -26,5 +26,7 @@ describe("白板分頁", () => {
     expect(selectMonitoredPage({ drawing: true, currentPageId: "page_GHIJKL", lastWrittenPageId: "page_ABCDEF" }, pages)).toBe("page_GHIJKL");
     expect(selectMonitoredPage({ drawing: false, currentPageId: "page_GHIJKL", lastWrittenPageId: "page_ABCDEF" }, pages)).toBe("page_ABCDEF");
     expect(selectMonitoredPage({ currentPageId: "page_GHIJKL" }, pages)).toBe("page_GHIJKL");
+    expect(selectMonitoredPage({ drawing: true, currentPageId: "page_GHIJKL", lastWrittenAt: 20 }, pages, { lastWrittenPageId: "page_ABCDEF", lastWrittenAt: 10, lastWrittenLayer: "teacherStrokes" })).toBe("page_GHIJKL");
+    expect(selectMonitoredPage({ drawing: true, currentPageId: "page_GHIJKL", lastWrittenAt: 20 }, pages, { lastWrittenPageId: "page_ABCDEF", lastWrittenAt: 30, lastWrittenLayer: "teacherStrokes" })).toBe("page_ABCDEF");
   });
 });

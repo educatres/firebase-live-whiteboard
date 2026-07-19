@@ -1,6 +1,6 @@
 import { ensureAnonymousUser } from "../firebase/auth.js";
 import { bindStudent, resolveBoard, watchStudent } from "../firebase/studentRepository.js";
-import { clearActive, publishActive, removeStroke, saveStroke, subscribeLayer, subscribeStickyNotes } from "../firebase/boardRepository.js";
+import { clearActive, markBoardActivity, publishActive, removeStroke, saveStroke, subscribeLayer, subscribeStickyNotes } from "../firebase/boardRepository.js";
 import { setDrawing, setPresencePage, startPresence } from "../firebase/presenceRepository.js";
 import { watchBoardPages } from "../firebase/pageRepository.js";
 import { watchConnection } from "../firebase/connection.js";
@@ -22,6 +22,7 @@ let currentPageId = pages[0].id;
 let pageOffs = [], lifecycleOffs = [];
 let activeTimer;
 let presenceDrawing = false;
+let lastActivityAt = 0, lastActivityPageId = "";
 const drawingSettings = { tool: "pen", color: "#173f5f", width: 5 };
 
 watchConnection(document.querySelector("#connectionBadge"));
@@ -98,6 +99,8 @@ function openPage(pageId, updatePresence = true) {
     onActive: (stroke) => {
       const drawing = Boolean(stroke);
       if (drawing !== presenceDrawing) { presenceDrawing = drawing; setDrawing(student.classId, student.id, drawing, activePageId); }
+      const now = Date.now();
+      if (stroke && (activePageId !== lastActivityPageId || now - lastActivityAt >= 750)) { lastActivityAt = now; lastActivityPageId = activePageId; markBoardActivity(token, "studentStrokes", activePageId).catch(() => {}); }
       clearTimeout(activeTimer);
       activeTimer = setTimeout(() => stroke
         ? publishActive(token, "student", user.uid, { ...stroke, points: stroke.points.slice(-80), updatedAt: Date.now(), pageId: activePageId })
