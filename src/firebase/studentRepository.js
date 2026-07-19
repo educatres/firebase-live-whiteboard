@@ -2,8 +2,10 @@ import { get, onValue, ref, runTransaction, update } from "firebase/database";
 import { database } from "./config.js";
 import { boardToken, randomId } from "../utils/random.js";
 
+export const MAX_STUDENTS = 80;
+
 export async function addStudents(classId, classroom, input) {
-  if ((classroom.studentCount || 0) + input.length > 40) throw new Error("每班最多 40 位學生。");
+  if ((classroom.studentCount || 0) + input.length > MAX_STUDENTS) throw new Error(`每班最多 ${MAX_STUDENTS} 位學生。`);
   const now = Date.now(); const changes = {};
   input.forEach((row, offset) => {
     const studentId = randomId(14); const token = boardToken(); const order = (classroom.studentCount || 0) + offset;

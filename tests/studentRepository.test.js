@@ -11,7 +11,7 @@ const databaseMocks = vi.hoisted(() => ({
 vi.mock("firebase/database", () => databaseMocks);
 vi.mock("../src/firebase/config.js", () => ({ database: {} }));
 
-import { bindStudent } from "../src/firebase/studentRepository.js";
+import { addStudents, bindStudent } from "../src/firebase/studentRepository.js";
 
 describe("bindStudent", () => {
   beforeEach(() => {
@@ -50,5 +50,26 @@ describe("bindStudent", () => {
     await expect(binding).resolves.toBe(true);
     expect(databaseMocks.runTransaction).toHaveBeenCalledOnce();
     expect(unsubscribe).toHaveBeenCalledOnce();
+  });
+});
+
+describe("addStudents", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    databaseMocks.update.mockResolvedValue();
+  });
+
+  it("允許每班加入 80 位學生", async () => {
+    const students = Array.from({ length: 80 }, (_, index) => ({ seatNumber: String(index + 1), displayName: `學生 ${index + 1}` }));
+    await addStudents("class-1", { studentCount: 0 }, students);
+
+    const changes = databaseMocks.update.mock.calls[0][1];
+    expect(changes["classes/class-1/studentCount"]).toBe(80);
+    expect(Object.keys(changes).filter((path) => path.startsWith("students/"))).toHaveLength(80);
+  });
+
+  it("拒絕第 81 位學生", async () => {
+    await expect(addStudents("class-1", { studentCount: 80 }, [{ seatNumber: "81", displayName: "超過上限" }])).rejects.toThrow("每班最多 80 位學生");
+    expect(databaseMocks.update).not.toHaveBeenCalled();
   });
 });

@@ -15,14 +15,14 @@
         "allowStudentWriting": { ".validate": "newData.isBoolean()" },
         "allowStudentClear": { ".validate": "newData.isBoolean()" },
         "showTeacherAnnotations": { ".validate": "newData.isBoolean()" },
-        "studentCount": { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 40" },
+        "studentCount": { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 80" },
         "admins": {
           "$uid": {
             ".write": "auth != null && $uid === auth.uid && !data.exists() && newData.val() === true && root.child('teacherClaims').child($classId).child(auth.uid).isString() && root.child('teacherInvites').child(root.child('teacherClaims').child($classId).child(auth.uid).val()).child('classId').val() === $classId && root.child('teacherInvites').child(root.child('teacherClaims').child($classId).child(auth.uid).val()).child('claimedBy').val() === auth.uid && root.child('teacherInvites').child(root.child('teacherClaims').child($classId).child(auth.uid).val()).child('expiresAt').val() > now && (root.child('teacherSlots').child($classId).child('1').val() === auth.uid || root.child('teacherSlots').child($classId).child('2').val() === auth.uid || root.child('teacherSlots').child($classId).child('3').val() === auth.uid || root.child('teacherSlots').child($classId).child('4').val() === auth.uid || root.child('teacherSlots').child($classId).child('5').val() === auth.uid)",
             ".validate": "newData.val() === true && (!data.exists() || $uid === auth.uid)"
           }
         },
-        "studentOrder": { "$studentId": { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() < 40" } },
+        "studentOrder": { "$studentId": { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() < 80" } },
         "$other": { ".validate": false }
       }
     },
