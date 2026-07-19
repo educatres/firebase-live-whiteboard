@@ -15,6 +15,7 @@ function createEngine() {
     panY: 0,
     pointers: new Map(),
     scale: 1,
+    smoothing: false,
     stage: { getBoundingClientRect: () => ({ left: 0, top: 0, width: 100, height: 100 }) },
     strokes: { studentStrokes: new Map(), teacherStrokes: new Map() },
     tool: "pen",
@@ -79,5 +80,49 @@ describe("BoardEngine iPad 指標處理", () => {
     ]);
     expect(engine.serialize(engine.current)).not.toHaveProperty("_pointerId");
     expect(engine.serialize(engine.current)).not.toHaveProperty("_pointerType");
+  });
+
+  it("可以在書寫中切換平滑並將狀態保存在筆畫", () => {
+    const engine = createEngine();
+    engine.setSmoothing(true);
+    engine.pointerDown(pointerEvent(1, "pen", 10, 10));
+    expect(engine.current.smooth).toBe(true);
+
+    engine.setSmoothing(false);
+    expect(engine.current.smooth).toBe(false);
+    expect(engine.renderAll).toHaveBeenCalled();
+  });
+
+  it("平滑筆畫使用貝茲曲線，關閉時維持直線段", () => {
+    const engine = createEngine();
+    engine.cssWidth = 100;
+    engine.cssHeight = 100;
+    const context = {
+      arc: vi.fn(),
+      beginPath: vi.fn(),
+      bezierCurveTo: vi.fn(),
+      fill: vi.fn(),
+      lineTo: vi.fn(),
+      moveTo: vi.fn(),
+      stroke: vi.fn(),
+    };
+    const stroke = {
+      color: "#173f5f",
+      opacity: 1,
+      points: [
+        [0.1, 0.1, 0.5, 0],
+        [0.3, 0.4, 0.5, 1],
+        [0.6, 0.2, 0.5, 2],
+      ],
+      smooth: true,
+      width: 5,
+    };
+
+    engine.drawStroke(context, stroke);
+    expect(context.bezierCurveTo).toHaveBeenCalled();
+    expect(context.lineTo).not.toHaveBeenCalled();
+
+    engine.drawStroke(context, { ...stroke, smooth: false });
+    expect(context.lineTo).toHaveBeenCalled();
   });
 });

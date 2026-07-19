@@ -9,6 +9,7 @@ afterAll(()=>env?.cleanup());
 const stroke=(uid,color="#112233")=>({id:"stroke_1",tool:"pen",color,width:4,opacity:1,points:[[.1,.1,.5,0],[.2,.2,.5,10]],createdAt:2,authorUid:uid});
 describe("Realtime Database 權限",()=>{
   it("老師可讀課堂與寫批注",async()=>{const db=env.authenticatedContext("teacher").database();await assertSucceeds(get(ref(db,`classes/${classId}`)));await assertSucceeds(set(ref(db,`boards/${token}/teacherStrokes/stroke_1`),stroke("teacher")));});
+  it("老師批注只接受布林值的平滑設定",async()=>{const db=env.authenticatedContext("teacher").database();await assertSucceeds(set(ref(db,`boards/${token}/teacherStrokes/stroke_1`),{...stroke("teacher"),smooth:true}));await assertFails(set(ref(db,`boards/${token}/teacherStrokes/stroke_1`),{...stroke("teacher"),smooth:"true"}));});
   it("學生可寫自己的筆跡且不能寫老師圖層",async()=>{const db=env.authenticatedContext("student").database();await assertSucceeds(set(ref(db,`boards/${token}/studentStrokes/stroke_1`),stroke("student")));await assertFails(set(ref(db,`boards/${token}/teacherStrokes/stroke_2`),{...stroke("student"),id:"stroke_2"}));});
   it("學生不能修改姓名或把自己加入管理員",async()=>{const db=env.authenticatedContext("student").database();await assertFails(update(ref(db,`students/${studentId}`),{displayName:"惡意修改"}));await assertFails(set(ref(db,`classes/${classId}/admins/student`),true));});
   it("其他人不能讀學生資料或筆跡",async()=>{const db=env.authenticatedContext("other").database();await assertFails(get(ref(db,`students/${studentId}`)));await assertFails(get(ref(db,`boards/${token}/studentStrokes`)));});
