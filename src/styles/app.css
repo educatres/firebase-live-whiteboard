@@ -290,6 +290,48 @@ button:disabled {
   display: flex;
   gap: 0.6rem;
 }
+.all-classes {
+  margin-top: 2rem;
+}
+.all-classes .section-title {
+  align-items: flex-end;
+}
+.all-classes .section-title h2,
+.all-classes .section-title p {
+  margin: 0;
+}
+.all-class-list {
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  background: var(--card);
+  box-shadow: var(--shadow);
+}
+.all-class-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1rem 1.3rem;
+}
+.all-class-row + .all-class-row {
+  border-top: 1px solid var(--border);
+}
+.all-class-info {
+  min-width: 0;
+}
+.all-class-info h3,
+.all-class-info p {
+  margin: 0;
+}
+.all-class-info h3 {
+  overflow-wrap: anywhere;
+}
+.all-class-list .empty,
+.all-class-list > .muted {
+  margin: 0;
+  padding: 1.3rem;
+}
 .class-stats {
   margin-top: 2rem;
 }
@@ -344,7 +386,8 @@ button:disabled {
   color: #176646;
 }
 .badge.offline,
-.badge.error {
+.badge.error,
+.badge.disabled {
   background: #fff0f0;
   color: #a52e2e;
 }
@@ -532,14 +575,24 @@ dialog form {
 }
 .display-clock {
   position: absolute;
-  top: calc(0.75rem + env(safe-area-inset-top));
-  right: calc(0.75rem + env(safe-area-inset-right));
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
   color: #fff;
-  font-size: 20px;
+  font-size: 80px;
   font-variant-numeric: tabular-nums;
   font-weight: 400;
   line-height: 1;
+  white-space: nowrap;
   pointer-events: none;
+}
+.display-black #displayMessage {
+  position: absolute;
+  top: calc(50% + 4.5rem);
+  left: 50%;
+  width: min(90vw, 720px);
+  transform: translateX(-50%);
+  text-align: center;
 }
 .display-black[hidden] {
   display: none;
