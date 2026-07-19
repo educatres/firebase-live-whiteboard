@@ -1,3 +1,14 @@
+export const STUDENT_IMPORT_EXAMPLE = `01 王小明
+02 陳小華
+03 林小美
+04 張志豪
+05 李佳穎
+06 吳承翰
+07 劉品妤
+08 黃柏宇
+09 蔡宜庭
+10 林冠廷`;
+
 export function parseStudentList(text, start = 1) {
   const lines = text.split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
   return lines.map((line, index) => {
