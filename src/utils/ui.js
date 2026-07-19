@@ -9,7 +9,7 @@ export function toast(message, type = "info") {
 }
 export function explainError(error) {
   console.error(error);
-  if (error?.code === "PERMISSION_DENIED" || error?.code === "permission-denied") return "權限不足，請確認你使用建立課堂時的同一個瀏覽器。";
+  if (error?.code === "PERMISSION_DENIED" || error?.code === "permission-denied") return "權限不足，請使用老師連結並輸入六位數老師密鑰。";
   if (error?.code?.includes("network")) return "網路連線失敗，請稍後重試。";
   return error?.message || "發生未預期的錯誤。";
 }

@@ -4,7 +4,7 @@ import { assertFails, assertSucceeds, initializeTestEnvironment } from "@firebas
 import { get, ref, set, update } from "firebase/database";
 
 let env;const projectId="classpad-rules-test",classId="class123",studentId="student123",token="abcdefghijklmnopqrstuvwx";
-beforeAll(async()=>{env=await initializeTestEnvironment({projectId,database:{rules:fs.readFileSync("database.rules.json","utf8"),host:"127.0.0.1",port:9000}});const pages={main:{id:"main",order:0,createdAt:1,createdBy:"teacher"},page_ABCDEF:{id:"page_ABCDEF",order:1,createdAt:2,createdBy:"teacher"}};await env.withSecurityRulesDisabled(async context=>set(ref(context.database()),{classes:{[classId]:{title:"測試",className:"",activityName:"",createdAt:1,updatedAt:1,status:"active",allowStudentWriting:true,allowStudentClear:false,showTeacherAnnotations:true,studentCount:1,admins:{teacher:true},studentOrder:{[studentId]:0},boardPages:pages}},students:{[studentId]:{classId,boardToken:token,seatNumber:"01",displayName:"小明",studentUid:"student",enabled:true,locked:false,createdAt:1,updatedAt:1}},boardLookup:{[token]:{classId,studentId}},boardPages:{[token]:pages},boards:{[token]:{meta:{classId,studentId,revision:0,updatedAt:1}}},userClasses:{teacher:{[classId]:true}},teacherSlots:{[classId]:{1:"teacher"}}}));});
+beforeAll(async()=>{env=await initializeTestEnvironment({projectId,database:{rules:fs.readFileSync("database.rules.json","utf8"),host:"127.0.0.1",port:9000}});const pages={main:{id:"main",order:0,createdAt:1,createdBy:"teacher"},page_ABCDEF:{id:"page_ABCDEF",order:1,createdAt:2,createdBy:"teacher"}};await env.withSecurityRulesDisabled(async context=>set(ref(context.database()),{classes:{[classId]:{title:"測試",className:"",activityName:"",createdAt:1,updatedAt:1,status:"active",allowStudentWriting:true,allowStudentClear:false,showTeacherAnnotations:true,studentCount:1,admins:{teacher:true},studentOrder:{[studentId]:0},boardPages:pages}},students:{[studentId]:{classId,boardToken:token,seatNumber:"01",displayName:"小明",studentUid:"student",enabled:true,locked:false,createdAt:1,updatedAt:1}},boardLookup:{[token]:{classId,studentId}},boardPages:{[token]:pages},boards:{[token]:{meta:{classId,studentId,revision:0,updatedAt:1}}},userClasses:{teacher:{[classId]:true}},teacherSlots:{[classId]:{1:"teacher"}},teacherKeys:{[classId]:"123456"}}));});
 afterAll(()=>env?.cleanup());
 const stroke=(uid,color="#112233")=>({id:"stroke_1",tool:"pen",color,width:4,opacity:1,points:[[.1,.1,.5,0],[.2,.2,.5,10]],createdAt:2,authorUid:uid});
 const stickyNote=(uid,overrides={})=>({id:"note_1",text:"請看這裡",color:"yellow",x:.1,y:.1,width:.3,height:.2,createdAt:2,updatedAt:2,authorUid:uid,...overrides});
@@ -25,6 +25,30 @@ describe("Realtime Database 權限",()=>{
   it("學生人數與順序上限為 80",async()=>{const db=env.authenticatedContext("teacher").database();await assertSucceeds(set(ref(db,`classes/${classId}/studentCount`),80));await assertFails(set(ref(db,`classes/${classId}/studentCount`),81));await assertSucceeds(set(ref(db,`classes/${classId}/studentOrder/student080`),79));await assertFails(set(ref(db,`classes/${classId}/studentOrder/student081`),80));});
   it("只有老師可釘選本課堂學生",async()=>{const teacherDb=env.authenticatedContext("teacher").database(),studentDb=env.authenticatedContext("student").database();await assertSucceeds(set(ref(teacherDb,`classes/${classId}/pinnedStudents/${studentId}`),true));await assertFails(set(ref(studentDb,`classes/${classId}/pinnedStudents/${studentId}`),true));await assertFails(set(ref(teacherDb,`classes/${classId}/pinnedStudents/not-in-class`),true));await assertSucceeds(set(ref(teacherDb,`classes/${classId}/pinnedStudents/${studentId}`),null));});
   it("新裝置可用短效單次連結取得老師權限",async()=>{const inviteToken="ABCDEFGHJKLMNPQRSTUVWX23",now=Date.now(),teacherDb=env.authenticatedContext("teacher").database(),monitorDb=env.authenticatedContext("monitor").database();await assertSucceeds(set(ref(teacherDb,`teacherInvites/${inviteToken}`),{classId,createdBy:"teacher",createdAt:now,expiresAt:now+600000}));await assertSucceeds(set(ref(monitorDb,`teacherInvites/${inviteToken}/claimedBy`),"monitor"));await assertSucceeds(set(ref(monitorDb,`teacherClaims/${classId}/monitor`),inviteToken));await assertSucceeds(set(ref(monitorDb,`teacherSlots/${classId}/2`),"monitor"));await assertSucceeds(set(ref(monitorDb,`classes/${classId}/admins/monitor`),true));await assertSucceeds(set(ref(monitorDb,`userClasses/monitor/${classId}`),true));await assertSucceeds(get(ref(monitorDb,`classes/${classId}`)));await assertSucceeds(update(ref(monitorDb),{[`teacherClaims/${classId}/monitor`]:null,[`teacherInvites/${inviteToken}`]:null}));});
+  it("永久老師連結可用六位數密鑰授權多台相同權限裝置",async()=>{
+    const keyClass="class-key-access",key="012345",teacherDb=env.authenticatedContext("key-teacher").database(),firstDb=env.authenticatedContext("key-monitor-1").database(),secondDb=env.authenticatedContext("key-monitor-2").database();
+    await env.withSecurityRulesDisabled(async context=>update(ref(context.database()),{
+      [`classes/${keyClass}`]:{title:"密鑰課堂",className:"",activityName:"",createdAt:1,updatedAt:1,status:"active",allowStudentWriting:true,allowStudentClear:false,showTeacherAnnotations:true,studentCount:0,admins:{"key-teacher":true}},
+      [`userClasses/key-teacher/${keyClass}`]:true,
+      [`teacherSlots/${keyClass}/1`]:"key-teacher",
+      [`teacherKeys/${keyClass}`]:key
+    }));
+    await assertSucceeds(get(ref(teacherDb,`teacherKeys/${keyClass}`)));
+    await assertFails(get(ref(firstDb,`teacherKeys/${keyClass}`)));
+    await assertFails(set(ref(firstDb,`teacherKeyClaims/${keyClass}/key-monitor-1`),"999999"));
+    await assertSucceeds(set(ref(firstDb,`teacherKeyClaims/${keyClass}/key-monitor-1`),key));
+    await assertSucceeds(get(ref(firstDb,`teacherSlots/${keyClass}`)));
+    await assertSucceeds(set(ref(firstDb,`teacherSlots/${keyClass}/2`),"key-monitor-1"));
+    await assertSucceeds(set(ref(firstDb,`classes/${keyClass}/admins/key-monitor-1`),true));
+    await assertSucceeds(set(ref(firstDb,`userClasses/key-monitor-1/${keyClass}`),true));
+    await assertSucceeds(set(ref(firstDb,`teacherKeyClaims/${keyClass}/key-monitor-1`),null));
+    await assertSucceeds(set(ref(secondDb,`teacherKeyClaims/${keyClass}/key-monitor-2`),key));
+    await assertSucceeds(set(ref(secondDb,`teacherSlots/${keyClass}/3`),"key-monitor-2"));
+    await assertSucceeds(set(ref(secondDb,`classes/${keyClass}/admins/key-monitor-2`),true));
+    await assertSucceeds(set(ref(secondDb,`userClasses/key-monitor-2/${keyClass}`),true));
+    await assertSucceeds(update(ref(firstDb,`classes/${keyClass}`),{activityName:"第一台管理",updatedAt:2}));
+    await assertSucceeds(update(ref(secondDb,`classes/${keyClass}`),{activityName:"第二台管理",updatedAt:3}));
+  });
   it("同一課堂所有已註冊監看裝置享有相同老師權限",async()=>{
     const sharedClass="class-shared-rights",sharedStudent="student-shared-rights",sharedBoard="23456789abcdefghjkmnpqrs",displayToken="23456789ABCDEFGHJKLMNPQR",inviteToken="ABCDEFGHJKLMNPQRSTUVWX29",now=Date.now(),peerUid="shared-monitor",peerDb=env.authenticatedContext(peerUid).database();
     const pages={main:{id:"main",order:0,createdAt:1,createdBy:"shared-teacher"}};

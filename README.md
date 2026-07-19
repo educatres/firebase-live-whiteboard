@@ -10,7 +10,7 @@
 - 三層 Retina Canvas、Pointer Events、Apple Pencil 壓力、整筆橡皮擦
 - 本機復原/重做、雙指 25%～400% 縮放與拖曳
 - 4:3 固定白板比例，4／6／8／12 格即時監看、釘選優先排序、搜尋/篩選/輪播、全螢幕批注
-- 短效單次授權連結，最多五台老師裝置同時使用多格監看
+- 永久老師連結與未遮蔽六位數密鑰，最多五台老師裝置享有相同管理權限
 - 老師鎖定、清除圖層、本機合成下載 PNG
 - 拒絕預設存取的 Firebase Security Rules 與 Emulator 權限測試
 
@@ -53,7 +53,7 @@ pnpm build
    - `localhost`
    - `127.0.0.1`
 
-5. 權限資料會在首次使用後依規則建立於 `classes`、`students`、`boards`、`activeStrokes`、`presence`、`userClasses`、`teacherInvites`、`teacherClaims`、`teacherSlots` 與 `boardLookup` 節點，不需手動建立空資料表。
+5. 權限資料會在首次使用後依規則建立於 `classes`、`students`、`boards`、`activeStrokes`、`presence`、`userClasses`、`teacherKeys`、`teacherKeyClaims`、`teacherSlots` 與 `boardLookup` 節點，不需手動建立空資料表。
 
 ## GitHub Pages
 
@@ -69,6 +69,6 @@ Firebase Web API key 會包含在公開前端 bundle；資料授權完全由 Aut
 
 ## 權限與隱私
 
-老師管理權限綁定各裝置的匿名瀏覽器身分。已授權的老師端可產生 10 分鐘有效、限一台新裝置使用的「跨裝置監看」連結；新裝置註冊後與同一課堂的其他老師裝置享有相同完整權限，每個課堂最多五台老師裝置。如果所有已授權裝置都清除網站資料，仍無法自動找回課堂。只應輸入座號或暱稱，不應輸入身分證字號、電話、Email、住址或醫療資料。
+每個課堂會建立永久老師連結與未遮蔽的六位數字密鑰。新裝置開啟老師連結並輸入正確密鑰後，其匿名瀏覽器身分會加入課堂管理員，並與其他老師裝置享有相同完整權限；每個課堂最多五台老師裝置。請妥善保管老師連結與密鑰，只應輸入學生座號或暱稱，不應輸入身分證字號、電話、Email、住址或醫療資料。
 
 完整需求請見 [SPEC.md](./SPEC.md) 與 [即時同步手寫白板規格書.md](./即時同步手寫白板規格書.md)。

@@ -255,6 +255,47 @@ button:disabled {
 .panel {
   margin: 1rem 0 1.5rem;
 }
+.teacher-login {
+  width: min(520px, 100%);
+  margin: 3rem auto;
+}
+.teacher-login h1 {
+  margin: 0.2rem 0 0.5rem;
+}
+.teacher-login form {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 0.75rem;
+  align-items: end;
+}
+.teacher-login input {
+  font-size: 1.4rem;
+  letter-spacing: 0.22em;
+  font-variant-numeric: tabular-nums;
+}
+.teacher-access-panel {
+  display: grid;
+  grid-template-columns: minmax(190px, 0.35fr) minmax(280px, 1fr);
+  gap: 1.5rem;
+  align-items: center;
+}
+.teacher-access-panel h2 {
+  margin: 0.1rem 0;
+}
+.teacher-access-key {
+  display: block;
+  color: var(--navy);
+  font-size: clamp(2rem, 5vw, 3.2rem);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.14em;
+  line-height: 1.2;
+}
+.teacher-access-link {
+  min-width: 0;
+}
+.teacher-access-link input[readonly] {
+  background: #f4f7f8;
+}
 .settings-grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
@@ -935,6 +976,10 @@ dialog form {
     display: none;
   }
   .settings-grid {
+    grid-template-columns: 1fr;
+  }
+  .teacher-access-panel,
+  .teacher-login form {
     grid-template-columns: 1fr;
   }
   .page-heading,

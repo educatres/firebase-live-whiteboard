@@ -1,9 +1,52 @@
 import { get, ref, runTransaction, set, update } from "firebase/database";
 import { database } from "./config.js";
-import { boardToken } from "../utils/random.js";
+import { boardToken, teacherAccessKey } from "../utils/random.js";
 
 const INVITE_TTL_MS = 10 * 60 * 1000;
 export const MAX_TEACHER_DEVICES = 5;
+
+export async function ensureTeacherAccessKey(classId) {
+  const result = await runTransaction(ref(database, `teacherKeys/${classId}`), (current) => current || teacherAccessKey(), { applyLocally: false });
+  const key = result.snapshot.val();
+  if (!/^\d{6}$/.test(key || "")) throw new Error("無法建立老師密鑰。");
+  return key;
+}
+
+async function claimTeacherSlot(classId, uid) {
+  const slots = (await get(ref(database, `teacherSlots/${classId}`))).val() || {};
+  let claimedSlot = Object.keys(slots).find((slot) => slots[slot] === uid);
+  for (let slot = 1; !claimedSlot && slot <= MAX_TEACHER_DEVICES; slot++) {
+    const result = await runTransaction(ref(database, `teacherSlots/${classId}/${slot}`), (current) => {
+      if (current && current !== uid) return;
+      return uid;
+    }, { applyLocally: false });
+    if (result.snapshot.val() === uid) claimedSlot = String(slot);
+  }
+  return claimedSlot;
+}
+
+export async function claimTeacherKey(classId, key, uid) {
+  const normalizedKey = String(key || "").trim();
+  if (!/^\d{6}$/.test(normalizedKey)) throw new Error("請輸入六位數老師密鑰。");
+  try {
+    await set(ref(database, `teacherKeyClaims/${classId}/${uid}`), normalizedKey);
+  } catch {
+    throw new Error("老師密鑰錯誤，請重新確認六位數字。");
+  }
+  const claimedSlot = await claimTeacherSlot(classId, uid);
+  if (!claimedSlot) {
+    await set(ref(database, `teacherKeyClaims/${classId}/${uid}`), null).catch(() => {});
+    throw new Error(`此課堂已達 ${MAX_TEACHER_DEVICES} 台老師裝置上限，請先由已授權裝置解除其他裝置。`);
+  }
+  try {
+    await set(ref(database, `classes/${classId}/admins/${uid}`), true);
+  } catch {
+    await set(ref(database, `teacherSlots/${classId}/${claimedSlot}`), null).catch(() => {});
+    throw new Error("無法取得課堂管理權限，請重新確認老師連結與密鑰。");
+  }
+  await set(ref(database, `userClasses/${uid}/${classId}`), true);
+  await set(ref(database, `teacherKeyClaims/${classId}/${uid}`), null).catch(() => {});
+}
 
 async function syncTeacherSlots(classId, admins) {
   const slotsRef = ref(database, `teacherSlots/${classId}`);
@@ -34,15 +77,17 @@ export async function createTeacherInvite(classId, uid) {
 }
 
 export async function resetOtherTeacherDevices(classId, uid) {
-  const [adminsSnapshot, slotsSnapshot, claimsSnapshot] = await Promise.all([
+  const [adminsSnapshot, slotsSnapshot, claimsSnapshot, keyClaimsSnapshot] = await Promise.all([
     get(ref(database, `classes/${classId}/admins`)),
     get(ref(database, `teacherSlots/${classId}`)),
-    get(ref(database, `teacherClaims/${classId}`))
+    get(ref(database, `teacherClaims/${classId}`)),
+    get(ref(database, `teacherKeyClaims/${classId}`))
   ]);
   const admins = adminsSnapshot.val() || {};
   if (admins[uid] !== true) throw new Error("目前裝置沒有這個課堂的老師權限。");
   const slots = slotsSnapshot.val() || {};
   const claims = claimsSnapshot.val() || {};
+  const keyClaims = keyClaimsSnapshot.val() || {};
   const otherUids = Object.keys(admins).filter((adminUid) => adminUid !== uid);
   const changes = { [`classes/${classId}/updatedAt`]: Date.now() };
 
@@ -57,6 +102,9 @@ export async function resetOtherTeacherDevices(classId, uid) {
     if (claimUid === uid) continue;
     changes[`teacherClaims/${classId}/${claimUid}`] = null;
     if (typeof token === "string") changes[`teacherInvites/${token}`] = null;
+  }
+  for (const claimUid of Object.keys(keyClaims)) {
+    if (claimUid !== uid) changes[`teacherKeyClaims/${classId}/${claimUid}`] = null;
   }
 
   await update(ref(database), changes);
@@ -81,15 +129,7 @@ export async function claimTeacherInvite(classId, token, uid) {
   if (!claim.committed && claim.snapshot.val() !== uid) throw new Error("這個老師授權連結已被使用。");
 
   await set(ref(database, `teacherClaims/${classId}/${uid}`), token);
-  const slots = (await get(ref(database, `teacherSlots/${classId}`))).val() || {};
-  let claimedSlot = Object.keys(slots).find((slot) => slots[slot] === uid);
-  for (let slot = 1; !claimedSlot && slot <= MAX_TEACHER_DEVICES; slot++) {
-    const result = await runTransaction(ref(database, `teacherSlots/${classId}/${slot}`), (current) => {
-      if (current && current !== uid) return;
-      return uid;
-    }, { applyLocally: false });
-    if (result.snapshot.val() === uid) claimedSlot = String(slot);
-  }
+  const claimedSlot = await claimTeacherSlot(classId, uid);
   if (!claimedSlot) throw new Error("此課堂已達 5 台老師裝置上限，請使用已授權的裝置。");
   try {
     await set(ref(database, `classes/${classId}/admins/${uid}`), true);
