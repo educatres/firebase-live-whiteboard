@@ -1,11 +1,12 @@
 import { get, onValue, ref, set, update } from "firebase/database";
 import { database } from "./config.js";
 import { randomId, teacherAccessKey } from "../utils/random.js";
-import { CLASSROOM_TTL_MS, isClassroomExpired, setServerTimeOffset } from "../utils/classroomExpiration.js";
+import { CLASSROOM_TTL_MS, isClassroomExpired, serverNow } from "../utils/classroomExpiration.js";
 import { recordClassroomCreated, recordClassroomDeleted } from "../utils/classroomStats.js";
 
 export async function createClassroom(uid, values) {
-  const classId = randomId(10); const offset = Number((await get(ref(database, ".info/serverTimeOffset"))).val()) || 0; setServerTimeOffset(offset); const now = Date.now() + offset;
+  const classId = randomId(10);
+  const now = serverNow();
   const classroom = { title: values.title.trim(), className: values.className?.trim() || "", activityName: values.activityName?.trim() || "", createdAt: now, expiresAt: now + CLASSROOM_TTL_MS, updatedAt: now, status: "active", allowStudentWriting: true, allowStudentClear: false, showTeacherAnnotations: true, studentCount: 0, admins: { [uid]: true }, studentOrder: {}, boardPages: { main: { id: "main", order: 0, createdAt: now, createdBy: uid } } };
   await update(ref(database), { [`classes/${classId}`]: classroom, [`userClasses/${uid}/${classId}`]: true });
   await set(ref(database, `teacherKeys/${classId}`), teacherAccessKey());

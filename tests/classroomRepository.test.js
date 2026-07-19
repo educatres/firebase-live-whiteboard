@@ -9,11 +9,12 @@ vi.mock("../src/firebase/config.js", () => ({ database: {} }));
 vi.mock("../src/utils/random.js", () => ({ randomId: () => "class-1", teacherAccessKey: () => "123456" }));
 
 import { cleanupExpiredClassroom, createClassroom, deleteClassroom, getClassroomExpiresAt } from "../src/firebase/classroomRepository.js";
-import { CLASSROOM_TTL_MS } from "../src/utils/classroomExpiration.js";
+import { CLASSROOM_TTL_MS, setServerTimeOffset } from "../src/utils/classroomExpiration.js";
 
 describe("課程建立與到期清理", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    setServerTimeOffset(0);
     databaseMocks.set.mockResolvedValue();
     databaseMocks.update.mockResolvedValue();
     databaseMocks.get.mockResolvedValue({ val: () => 0 });
@@ -24,6 +25,7 @@ describe("課程建立與到期清理", () => {
     await createClassroom("teacher", { title: "數學課" });
     const classroom = databaseMocks.update.mock.calls[0][1]["classes/class-1"];
     expect(classroom.expiresAt).toBe(1_000_000 + CLASSROOM_TTL_MS);
+    expect(databaseMocks.get).not.toHaveBeenCalled();
     expect(databaseMocks.set).toHaveBeenCalledTimes(1);
     expect(databaseMocks.set).toHaveBeenCalledWith("teacherKeys/class-1", "123456");
     vi.restoreAllMocks();
