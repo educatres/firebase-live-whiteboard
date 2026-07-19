@@ -33,6 +33,36 @@ export async function createTeacherInvite(classId, uid) {
   return { token, expiresAt: invite.expiresAt };
 }
 
+export async function resetOtherTeacherDevices(classId, uid) {
+  const [adminsSnapshot, slotsSnapshot, claimsSnapshot] = await Promise.all([
+    get(ref(database, `classes/${classId}/admins`)),
+    get(ref(database, `teacherSlots/${classId}`)),
+    get(ref(database, `teacherClaims/${classId}`))
+  ]);
+  const admins = adminsSnapshot.val() || {};
+  if (admins[uid] !== true) throw new Error("目前裝置沒有這個課堂的老師權限。");
+  const slots = slotsSnapshot.val() || {};
+  const claims = claimsSnapshot.val() || {};
+  const otherUids = Object.keys(admins).filter((adminUid) => adminUid !== uid);
+  const changes = { [`classes/${classId}/updatedAt`]: Date.now() };
+
+  for (const adminUid of otherUids) {
+    changes[`classes/${classId}/admins/${adminUid}`] = null;
+    changes[`userClasses/${adminUid}/${classId}`] = null;
+  }
+  for (const [slot, slotUid] of Object.entries(slots)) {
+    if (slotUid !== uid) changes[`teacherSlots/${classId}/${slot}`] = null;
+  }
+  for (const [claimUid, token] of Object.entries(claims)) {
+    if (claimUid === uid) continue;
+    changes[`teacherClaims/${classId}/${claimUid}`] = null;
+    if (typeof token === "string") changes[`teacherInvites/${token}`] = null;
+  }
+
+  await update(ref(database), changes);
+  return otherUids.length;
+}
+
 export async function claimTeacherInvite(classId, token, uid) {
   const inviteRef = ref(database, `teacherInvites/${token}`);
   const invite = (await get(inviteRef)).val();

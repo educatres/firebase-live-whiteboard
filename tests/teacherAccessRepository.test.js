@@ -11,7 +11,7 @@ const databaseMocks = vi.hoisted(() => ({
 vi.mock("firebase/database", () => databaseMocks);
 vi.mock("../src/firebase/config.js", () => ({ database: {} }));
 
-import { claimTeacherInvite, createTeacherInvite } from "../src/firebase/teacherAccessRepository.js";
+import { claimTeacherInvite, createTeacherInvite, resetOtherTeacherDevices } from "../src/firebase/teacherAccessRepository.js";
 
 describe("跨裝置老師授權", () => {
   beforeEach(() => {
@@ -56,5 +56,25 @@ describe("跨裝置老師授權", () => {
       "teacherClaims/class-1/monitor-1": null,
       [`teacherInvites/${token}`]: null
     });
+  });
+
+  it("保留目前裝置並一次解除其他老師裝置", async () => {
+    databaseMocks.get.mockImplementation(async (path) => ({ val: () => {
+      if (path.endsWith("/admins")) return { "teacher-1": true, "monitor-1": true, "monitor-2": true };
+      if (path.startsWith("teacherSlots/")) return { 1: "teacher-1", 2: "monitor-1", 3: "monitor-2" };
+      return { "monitor-2": "ABCDEFGHJKLMNPQRSTUVWX23" };
+    } }));
+
+    await expect(resetOtherTeacherDevices("class-1", "teacher-1")).resolves.toBe(2);
+    expect(databaseMocks.update).toHaveBeenCalledWith("", expect.objectContaining({
+      "classes/class-1/admins/monitor-1": null,
+      "classes/class-1/admins/monitor-2": null,
+      "userClasses/monitor-1/class-1": null,
+      "userClasses/monitor-2/class-1": null,
+      "teacherSlots/class-1/2": null,
+      "teacherSlots/class-1/3": null,
+      "teacherClaims/class-1/monitor-2": null,
+      "teacherInvites/ABCDEFGHJKLMNPQRSTUVWX23": null
+    }));
   });
 });
