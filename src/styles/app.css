@@ -902,6 +902,9 @@ dialog form {
   inset: 0;
   height: 100%;
 }
+.preview-board.has-background .preview-canvas {
+  background: transparent;
+}
 .preview-card .enlarge {
   position: absolute;
   right: 0.6rem;

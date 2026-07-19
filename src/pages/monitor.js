@@ -112,9 +112,10 @@ function render() {
     return `<article class="preview-card" data-id="${student.id}"><div class="preview-head"><strong>${escapeHtml(student.seatNumber)} ${escapeHtml(student.displayName)}</strong><span class="preview-actions"><span class="badge">第 ${pageNumber(monitoredPage)} 頁</span><button class="pin-button" aria-label="${pinned[student.id] ? "取消釘選" : "釘選"} ${escapeHtml(student.displayName)}" aria-pressed="${Boolean(pinned[student.id])}">${pinned[student.id] ? "📌 已釘選" : "📌 釘選"}</button><span class="badge ${presence[student.id]?.online ? "online" : "offline"}">${presence[student.id]?.online ? (presence[student.id]?.drawing ? "書寫中" : "在線") : "離線"}</span>${student.locked ? " <span class=\"badge error\">鎖定</span>" : ""}</span></div><div class="preview-board"><img class="board-background-image" alt="題目底圖" hidden><canvas class="preview-canvas"></canvas></div><button class="project-display ${projecting ? "active" : ""}">${projecting ? "投影中" : "投影"}</button><button class="enlarge primary">放大批注</button></article>`;
   }).join("");
   visible.forEach((student) => {
-    const card = grid.querySelector(`[data-id="${student.id}"]`), canvas = card.querySelector("canvas"), maps = [new Map(), new Map()], monitoredPage = student.monitoredPageId;
+    const card = grid.querySelector(`[data-id="${student.id}"]`), previewBoard = card.querySelector(".preview-board"), canvas = card.querySelector("canvas"), maps = [new Map(), new Map()], monitoredPage = student.monitoredPageId;
     const background = classPages().find((item) => item.id === monitoredPage)?.backgroundImage;
     showBackgroundImage(card.querySelector(".board-background-image"), background);
+    previewBoard.classList.toggle("has-background", Boolean(background));
     const redraw = () => requestAnimationFrame(() => drawPreview(canvas, maps, Boolean(background)));
     previewOffs.push(
       subscribeLayer(student.boardToken, "studentStrokes", { add: (id, value) => { maps[0].set(id, value); student.hasAnswer = true; redraw(); }, remove: (id) => { maps[0].delete(id); redraw(); } }, monitoredPage),
@@ -256,8 +257,9 @@ document.querySelector("#moveBackgroundImage").onclick = () => setBackgroundMove
 const reviewStage = document.querySelector("#reviewStage");
 reviewStage.addEventListener("pointerdown", (event) => {
   if (!backgroundMoveMode || backgroundMoveSaving) return;
-  const background = currentReviewBackground();
-  if (!background) return;
+  const savedBackground = currentReviewBackground();
+  if (!savedBackground) return;
+  const background = { ...savedBackground, scale: Number(document.querySelector("#backgroundScale").value) / 100 };
   event.preventDefault(); event.stopPropagation();
   reviewStage.setPointerCapture?.(event.pointerId);
   backgroundMoveDrag = { pointerId: event.pointerId, pageId: currentReviewPageId, startClientX: event.clientX, startClientY: event.clientY, startX: background.x, startY: background.y, background, x: background.x, y: background.y };

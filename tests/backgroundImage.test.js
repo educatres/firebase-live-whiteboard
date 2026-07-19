@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { googleDriveFileId, normalizeBackgroundImage, normalizeBackgroundPosition, normalizeBackgroundScale, normalizeGoogleDriveImageUrl } from "../src/whiteboard/backgroundImage.js";
+import { googleDriveFileId, normalizeBackgroundImage, normalizeBackgroundPosition, normalizeBackgroundScale, normalizeGoogleDriveImageUrl, showBackgroundImage } from "../src/whiteboard/backgroundImage.js";
 import { boardPagesMap, normalizeBoardPages } from "../src/whiteboard/pages.js";
 
 const fileId = "1AbCdEfGhIjKlMnOpQrStUvWxYz234567";
@@ -27,5 +27,18 @@ describe("Google Drive 白板底圖", () => {
     const backgroundImage = { sourceUrl: `https://drive.google.com/file/d/${fileId}/view`, imageUrl: `https://drive.google.com/thumbnail?id=${fileId}&sz=w2000`, scale: .8, x: .3, y: .7, updatedAt: 2, updatedBy: "teacher" };
     const pages = normalizeBoardPages({ main: { id: "main", order: 0, createdAt: 1, createdBy: "teacher", backgroundImage } });
     expect(boardPagesMap(pages).main.backgroundImage).toEqual(backgroundImage);
+  });
+
+  it("渲染時同時保留底圖縮放比例與位置", () => {
+    const properties = new Map(), attributes = new Map();
+    const element = {
+      hidden: true,
+      style: { setProperty: (key, value) => properties.set(key, value), removeProperty: (key) => properties.delete(key) },
+      getAttribute: (key) => attributes.get(key) || null,
+      set src(value) { attributes.set("src", value); }
+    };
+    showBackgroundImage(element, { sourceUrl: `https://drive.google.com/file/d/${fileId}/view`, imageUrl: `https://drive.google.com/thumbnail?id=${fileId}&sz=w2000`, scale: .45, x: .25, y: .7, updatedAt: 2, updatedBy: "teacher" });
+    expect(Object.fromEntries(properties)).toEqual({ "--background-size": "45%", "--background-x": "25%", "--background-y": "70%" });
+    expect(element.hidden).toBe(false);
   });
 });
