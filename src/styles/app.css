@@ -290,6 +290,39 @@ button:disabled {
   display: flex;
   gap: 0.6rem;
 }
+.class-stats {
+  margin-top: 2rem;
+}
+.class-stat-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+}
+.class-stat-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1.2rem 1.4rem;
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  background: var(--card);
+  box-shadow: var(--shadow);
+  font-weight: 750;
+}
+.class-stat-card.active {
+  border-color: #a9dcca;
+  background: #eefaf5;
+  color: #176646;
+}
+.class-stat-card.inactive {
+  background: #f4f7f8;
+  color: #526872;
+}
+.class-stat-card strong {
+  font-size: 2rem;
+  line-height: 1;
+}
 .privacy-note {
   margin-top: 2rem;
 }
@@ -1080,6 +1113,9 @@ dialog form {
     display: none;
   }
   .settings-grid {
+    grid-template-columns: 1fr;
+  }
+  .class-stat-grid {
     grid-template-columns: 1fr;
   }
   .teacher-access-panel,
