@@ -1,4 +1,4 @@
-export const CLASSROOM_TTL_MS = 12 * 60 * 60 * 1000;
+export const CLASSROOM_TTL_MS = 3 * 60 * 60 * 1000;
 let serverTimeOffset = 0;
 
 export function setServerTimeOffset(value) {
