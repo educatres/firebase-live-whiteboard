@@ -1,5 +1,109 @@
-<!doctype html><html lang="zh-Hant"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><title>多格監看｜ClassPad</title><link rel="stylesheet" href="./src/styles/app.css"></head><body class="monitor-page">
-<header class="site-header"><a class="brand" href="./">ClassPad</a><nav><a id="teacherLink" class="button-link" href="#">課堂設定</a><span id="connectionBadge" class="badge">連線中</span></nav></header>
-<main class="monitor-main"><div class="monitor-top"><div><p class="eyebrow">即時監看</p><h1 id="classTitle">正在載入…</h1></div><div class="monitor-filters"><div class="grid-size-controls" role="group" aria-label="每頁顯示人數"><button type="button" data-grid-size="4" aria-pressed="true">4 格</button><button type="button" data-grid-size="6" aria-pressed="false">6 格</button><button type="button" data-grid-size="8" aria-pressed="false">8 格</button><button type="button" data-grid-size="12" aria-pressed="false">12 格</button></div><input id="searchInput" type="search" placeholder="搜尋座號或姓名" aria-label="搜尋學生"><label><input id="onlineOnly" type="checkbox"> 僅在線</label><label><input id="answeredOnly" type="checkbox"> 僅有作答</label><label><input id="autoRotate" type="checkbox"> 自動輪播</label></div></div><div id="monitorState" class="notice">正在載入學生…</div><div id="monitorGrid" class="monitor-grid" data-size="4" hidden></div><div class="pagination"><button id="prevPage" class="ghost">上一頁</button><span id="pageLabel">第 1 / 1 頁</span><button id="nextPage" class="ghost">下一頁</button></div></main>
-<dialog id="reviewDialog" class="review-dialog"><div class="review-head"><div><strong id="reviewName"></strong><span id="reviewPresence" class="badge"></span></div><button id="closeReview" class="ghost">返回多格</button></div><div class="review-body"><div id="reviewStage" class="board-stage"><canvas id="reviewBackground"></canvas><canvas id="reviewStudent"></canvas><canvas id="reviewTeacher"></canvas></div></div><div class="board-toolbar review-toolbar"><button data-tool="pen" class="active">✎<span>批注筆</span></button><button data-tool="eraser">⌫<span>橡皮擦</span></button><input id="reviewColor" type="color" value="#ef4444" aria-label="批注顏色"><input id="reviewWidth" type="range" min="1" max="40" value="5" aria-label="批注粗細"><button id="reviewUndo">↶ 復原</button><button id="reviewRedo">↷ 重做</button><button id="toggleLock">鎖定白板</button><button id="clearTeacher">清除批注</button><button id="exportPng">下載 PNG</button><button id="reviewResetZoom">100%</button></div></dialog>
-<div id="toast" class="toast" role="status"></div><script type="module" src="./src/pages/monitor.js"></script></body></html>
+<!doctype html>
+<html lang="zh-Hant">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width,initial-scale=1,maximum-scale=1,viewport-fit=cover,user-scalable=no"
+    />
+    <title>多格監看｜ClassPad</title>
+    <link rel="stylesheet" href="./src/styles/app.css" />
+  </head>
+  <body class="monitor-page">
+    <header id="monitorToolbar" class="monitor-toolbar">
+      <a class="brand" href="./" aria-label="返回 ClassPad 首頁">ClassPad</a>
+      <div class="monitor-title" title="目前課程">
+        <span class="eyebrow">即時監看</span>
+        <strong id="classTitle">正在載入…</strong>
+      </div>
+      <div class="monitor-filters">
+        <div class="grid-size-controls" role="group" aria-label="每頁顯示人數">
+          <button type="button" data-grid-size="4" aria-pressed="true">4 格</button>
+          <button type="button" data-grid-size="6" aria-pressed="false">6 格</button>
+          <button type="button" data-grid-size="8" aria-pressed="false">8 格</button>
+          <button type="button" data-grid-size="12" aria-pressed="false">12 格</button>
+        </div>
+        <input
+          id="searchInput"
+          type="search"
+          placeholder="搜尋座號或姓名"
+          aria-label="搜尋學生"
+        />
+        <label><input id="onlineOnly" type="checkbox" /> 僅在線</label>
+        <label><input id="answeredOnly" type="checkbox" /> 僅有作答</label>
+        <label><input id="autoRotate" type="checkbox" /> 自動輪播</label>
+      </div>
+      <nav class="monitor-actions" aria-label="監看工具">
+        <a id="teacherLink" class="button-link" href="#">課堂設定</a>
+        <span id="connectionBadge" class="badge">連線中</span>
+        <button
+          id="hideMonitorToolbar"
+          class="ghost toolbar-toggle"
+          type="button"
+          aria-controls="monitorToolbar"
+          aria-label="隱藏上方工具列"
+          title="隱藏上方工具列"
+        >
+          ↑ 隱藏
+        </button>
+      </nav>
+    </header>
+    <button
+      id="showMonitorToolbar"
+      class="monitor-toolbar-show"
+      type="button"
+      aria-controls="monitorToolbar"
+      aria-label="顯示上方工具列"
+      title="顯示上方工具列"
+      hidden
+    >
+      ↓ 顯示工具列
+    </button>
+    <main class="monitor-main">
+      <div id="monitorState" class="notice">正在載入學生…</div>
+      <div id="monitorGrid" class="monitor-grid" data-size="4" hidden></div>
+      <div class="pagination">
+        <button id="prevPage" class="ghost">上一頁</button>
+        <span id="pageLabel">第 1 / 1 頁</span>
+        <button id="nextPage" class="ghost">下一頁</button>
+      </div>
+    </main>
+    <dialog id="reviewDialog" class="review-dialog">
+      <div class="review-head">
+        <div>
+          <strong id="reviewName"></strong>
+          <span id="reviewPresence" class="badge"></span>
+        </div>
+        <button id="closeReview" class="ghost">返回多格</button>
+      </div>
+      <div class="review-body">
+        <div id="reviewStage" class="board-stage">
+          <canvas id="reviewBackground"></canvas>
+          <canvas id="reviewStudent"></canvas>
+          <canvas id="reviewTeacher"></canvas>
+        </div>
+      </div>
+      <div class="board-toolbar review-toolbar">
+        <button data-tool="pen" class="active">✎<span>批注筆</span></button>
+        <button data-tool="eraser">⌫<span>橡皮擦</span></button>
+        <input id="reviewColor" type="color" value="#ef4444" aria-label="批注顏色" />
+        <input
+          id="reviewWidth"
+          type="range"
+          min="1"
+          max="40"
+          value="5"
+          aria-label="批注粗細"
+        />
+        <button id="reviewUndo">↶ 復原</button>
+        <button id="reviewRedo">↷ 重做</button>
+        <button id="toggleLock">鎖定白板</button>
+        <button id="clearTeacher">清除批注</button>
+        <button id="exportPng">下載 PNG</button>
+        <button id="reviewResetZoom">100%</button>
+      </div>
+    </dialog>
+    <div id="toast" class="toast" role="status"></div>
+    <script type="module" src="./src/pages/monitor.js"></script>
+  </body>
+</html>

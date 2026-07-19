@@ -26,6 +26,9 @@ body {
   margin: 0;
   min-height: 100%;
 }
+html {
+  touch-action: manipulation;
+}
 body {
   background:
     radial-gradient(circle at 90% 0, #e8f5f2, transparent 34%), #f7f9f8;
@@ -47,6 +50,13 @@ a.button-link {
   align-items: center;
   justify-content: center;
   gap: 0.35rem;
+}
+button,
+a,
+input,
+label {
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
 }
 button:disabled {
   opacity: 0.45;
@@ -340,6 +350,7 @@ dialog form {
 .board-page {
   height: 100dvh;
   overflow: hidden;
+  overscroll-behavior: none;
 }
 .board-header {
   position: relative;
@@ -372,6 +383,11 @@ dialog form {
   inset: 0;
   width: 100%;
   height: 100%;
+}
+.board-stage canvas:not(.readonly-layer) {
+  touch-action: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
 }
 .readonly-layer {
   pointer-events: none;
@@ -421,37 +437,90 @@ dialog form {
   padding: 2px;
 }
 .monitor-main {
-  padding: 1rem 2rem 5rem;
+  padding: 0.7rem 1rem 5rem;
 }
-.monitor-top {
+.monitor-toolbar {
+  position: sticky;
+  top: 0;
+  z-index: 25;
+  min-height: 64px;
+  padding: 0.45rem 0.75rem;
   display: flex;
-  justify-content: space-between;
-  align-items: end;
-  gap: 1rem;
+  align-items: center;
+  gap: 0.65rem;
+  background: rgba(255, 255, 255, 0.96);
+  border-bottom: 1px solid var(--border);
+  box-shadow: 0 4px 18px rgba(23, 63, 95, 0.08);
+  backdrop-filter: blur(14px);
 }
-.monitor-top h1 {
-  margin: 0.2rem 0;
+.monitor-toolbar[hidden],
+.monitor-toolbar-show[hidden] {
+  display: none !important;
+}
+.monitor-title {
+  display: grid;
+  min-width: 130px;
+  max-width: 230px;
+  line-height: 1.15;
+}
+.monitor-title .eyebrow {
+  font-size: 0.65rem;
+}
+.monitor-title strong {
+  overflow: hidden;
+  font-size: 1rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .monitor-filters {
   display: flex;
   align-items: center;
-  gap: 0.7rem;
+  gap: 0.5rem;
   flex-wrap: wrap;
+  flex: 1 1 auto;
 }
 .monitor-filters label {
   display: flex;
   gap: 0.3rem;
   align-items: center;
   white-space: nowrap;
+  font-size: 0.85rem;
+}
+.monitor-filters input[type="search"] {
+  width: clamp(150px, 15vw, 230px);
+  padding: 0.5rem 0.65rem;
 }
 .grid-size-controls {
   display: flex;
   gap: 0.25rem;
 }
 .grid-size-controls button {
-  padding: 0.5rem 0.7rem;
+  padding: 0.45rem 0.6rem;
   background: #edf3f5;
   color: var(--navy);
+}
+.monitor-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  white-space: nowrap;
+}
+.monitor-actions .button-link,
+.toolbar-toggle {
+  padding: 0.5rem 0.65rem;
+}
+.monitor-toolbar-show {
+  position: fixed;
+  top: max(0.5rem, env(safe-area-inset-top));
+  right: 0.75rem;
+  z-index: 26;
+  padding: 0.5rem 0.75rem;
+  color: #fff;
+  background: var(--navy);
+  box-shadow: var(--shadow);
+}
+.toolbar-hidden .monitor-main {
+  padding-top: 0.35rem;
 }
 .grid-size-controls button[aria-pressed="true"] {
   background: var(--navy);
@@ -563,6 +632,17 @@ dialog form {
   font-size: 2.4rem;
 }
 @media (max-width: 1200px) {
+  .monitor-toolbar {
+    align-items: flex-start;
+    flex-wrap: wrap;
+  }
+  .monitor-filters {
+    order: 3;
+    flex-basis: 100%;
+  }
+  .monitor-actions {
+    margin-left: auto;
+  }
   .monitor-grid[data-size="12"] {
     --grid-columns: 4;
   }
@@ -583,7 +663,28 @@ dialog form {
     flex-direction: column;
   }
   .monitor-main {
-    padding: 0.75rem;
+    padding: 0.4rem 0.45rem 4.5rem;
+  }
+  .monitor-toolbar {
+    gap: 0.45rem;
+    padding: max(0.4rem, env(safe-area-inset-top)) 0.5rem 0.4rem;
+  }
+  .monitor-toolbar > .brand {
+    display: none;
+  }
+  .monitor-title {
+    max-width: min(42vw, 220px);
+  }
+  .monitor-actions .badge {
+    display: none;
+  }
+  .monitor-filters {
+    overflow-x: auto;
+    flex-wrap: nowrap;
+    padding-bottom: 0.15rem;
+  }
+  .monitor-filters input[type="search"] {
+    flex: 0 0 170px;
   }
   .monitor-grid,
   .monitor-grid[data-size="6"],

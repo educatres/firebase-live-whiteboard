@@ -1,0 +1,83 @@
+import { describe, expect, it, vi } from "vitest";
+import { BoardEngine } from "../src/canvas/BoardEngine.js";
+
+function createEngine() {
+  const engine = Object.create(BoardEngine.prototype);
+  Object.assign(engine, {
+    activeEnabled: true,
+    color: "#173f5f",
+    current: null,
+    drawingPointerId: null,
+    editableLayer: "studentStrokes",
+    gesture: null,
+    onActive: vi.fn(),
+    panX: 0,
+    panY: 0,
+    pointers: new Map(),
+    scale: 1,
+    stage: { getBoundingClientRect: () => ({ left: 0, top: 0, width: 100, height: 100 }) },
+    strokes: { studentStrokes: new Map(), teacherStrokes: new Map() },
+    tool: "pen",
+    uid: "student-1",
+    undoStack: [],
+    redoStack: [],
+    width: 5,
+  });
+  engine.renderAll = vi.fn();
+  return engine;
+}
+
+function pointerEvent(pointerId, pointerType, x, y, timeStamp = 1) {
+  return {
+    clientX: x,
+    clientY: y,
+    currentTarget: { setPointerCapture: vi.fn() },
+    pointerId,
+    pointerType,
+    pressure: pointerType === "pen" ? 0.7 : 0.5,
+    preventDefault: vi.fn(),
+    timeStamp,
+  };
+}
+
+describe("BoardEngine iPad 指標處理", () => {
+  it("Apple Pencil 書寫時忽略後續手掌觸控", () => {
+    const engine = createEngine();
+    engine.pointerDown(pointerEvent(1, "pen", 10, 10));
+    engine.pointerDown(pointerEvent(2, "touch", 80, 80));
+
+    expect([...engine.pointers.keys()]).toEqual([1]);
+    expect(engine.current._pointerType).toBe("pen");
+    expect(engine.current.points).toHaveLength(1);
+  });
+
+  it("手掌先碰到畫布時會改由 Apple Pencil 接管筆畫", () => {
+    const engine = createEngine();
+    engine.pointerDown(pointerEvent(2, "touch", 80, 80));
+    engine.pointerDown(pointerEvent(1, "pen", 10, 10, 2));
+
+    expect([...engine.pointers.keys()]).toEqual([1]);
+    expect(engine.drawingPointerId).toBe(1);
+    expect(engine.current._pointerType).toBe("pen");
+    expect(engine.current.points[0].slice(0, 2)).toEqual([0.1, 0.1]);
+  });
+
+  it("會加入 Apple Pencil 的合併取樣點且不儲存內部指標欄位", () => {
+    const engine = createEngine();
+    engine.pointerDown(pointerEvent(1, "pen", 10, 10));
+    const move = pointerEvent(1, "pen", 30, 30, 3);
+    move.getCoalescedEvents = () => [
+      pointerEvent(1, "pen", 20, 20, 2),
+      pointerEvent(1, "pen", 30, 30, 3),
+    ];
+    engine.pointerMove(move);
+
+    expect(engine.current.points.map((point) => point.slice(0, 2))).toEqual([
+      [0.1, 0.1],
+      [0.2, 0.2],
+      [0.3, 0.3],
+    ]);
+    expect(engine.serialize(engine.current)).not.toHaveProperty("_pointerId");
+    expect(engine.serialize(engine.current)).not.toHaveProperty("_pointerType");
+  });
+});
