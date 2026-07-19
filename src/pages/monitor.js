@@ -37,7 +37,7 @@ function renderProjectionControls() {
   const active = Boolean(displayState?.active);
   document.querySelector("#stopProjection").disabled = !active;
   document.querySelector("#stopReviewProjection").disabled = !active;
-  document.querySelector("#projectReview").textContent = active && displayState.studentId === currentStudent?.id && displayState.pageId === currentReviewPageId ? "投影中" : "投影此頁";
+  document.querySelector("#projectReview").textContent = active && displayState.studentId === currentStudent?.id && displayState.followStudent ? "投影中（最近書寫頁）" : "投影最近書寫頁";
 }
 function connectDisplay(token) {
   if (!token || token === watchedDisplayToken) return;
@@ -49,7 +49,7 @@ async function projectStudent(student, pageId, followStudent) {
   classroom.displayToken = token; connectDisplay(token);
   displayState = await projectDisplay(token, classId, student, pageId, user.uid, followStudent);
   renderProjectionControls(); render();
-  toast(`已投影 ${student.seatNumber} ${student.displayName}${followStudent ? "，畫面會跟隨書寫頁。" : " 的目前頁面。"}`);
+  toast(`已投影 ${student.seatNumber} ${student.displayName}${followStudent ? " 的最近書寫頁，並同步顯示老師與學生筆跡。" : " 的目前頁面。"}`);
 }
 async function stopCurrentProjection() {
   if (!classroom?.displayToken) return;
@@ -295,7 +295,11 @@ smoothingButton.onclick = () => { teacherSmoothing = !teacherSmoothing; reviewEn
 renderSmoothingButton();
 document.querySelector("#reviewPrevPage").onclick = () => { const pages = classPages(), index = pages.findIndex((item) => item.id === currentReviewPageId); openReviewPage(pages[Math.max(0, index - 1)].id); };
 document.querySelector("#reviewNextPage").onclick = () => { const pages = classPages(), index = pages.findIndex((item) => item.id === currentReviewPageId); openReviewPage(pages[Math.min(pages.length - 1, index + 1)].id); };
-document.querySelector("#projectReview").onclick = () => currentStudent && projectStudent(currentStudent, currentReviewPageId, false).catch((error) => toast(explainError(error), "error"));
+document.querySelector("#projectReview").onclick = () => {
+  if (!currentStudent) return;
+  const pageId = selectMonitoredPage(presence[currentStudent.id], classroom?.boardPages);
+  projectStudent(currentStudent, pageId, true).catch((error) => toast(explainError(error), "error"));
+};
 document.querySelector("#stopProjection").onclick = () => stopCurrentProjection().catch((error) => toast(explainError(error), "error"));
 document.querySelector("#stopReviewProjection").onclick = () => stopCurrentProjection().catch((error) => toast(explainError(error), "error"));
 document.querySelector("#insertBlankPage").onclick = async (event) => {

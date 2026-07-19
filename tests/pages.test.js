@@ -21,7 +21,7 @@ describe("白板分頁", () => {
     expect(boardLayerPath("page_ABCDEF", "studentStrokes")).toBe("pages/page_ABCDEF/studentStrokes");
   });
 
-  it("多格監看優先顯示正在書寫頁，其次最近書寫頁", () => {
+  it("多格監看與投影優先顯示正在書寫頁，其次最近書寫頁", () => {
     const pages = [{ id: "main", order: 0 }, { id: "page_ABCDEF", order: 1 }, { id: "page_GHIJKL", order: 2 }];
     expect(selectMonitoredPage({ drawing: true, currentPageId: "page_GHIJKL", lastWrittenPageId: "page_ABCDEF" }, pages)).toBe("page_GHIJKL");
     expect(selectMonitoredPage({ drawing: false, currentPageId: "page_GHIJKL", lastWrittenPageId: "page_ABCDEF" }, pages)).toBe("page_ABCDEF");
