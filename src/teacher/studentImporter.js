@@ -8,3 +8,22 @@ export function parseStudentList(text, start = 1) {
     return { seatNumber, displayName };
   });
 }
+
+function studentIdentity(student) {
+  const seatNumber = String(student?.seatNumber || "").normalize("NFKC").trim();
+  const displayName = String(student?.displayName || "").normalize("NFKC").trim().replace(/\s+/g, " ");
+  return `${seatNumber}\u0000${displayName}`;
+}
+
+export function filterDuplicateStudents(input, existing = []) {
+  const seen = new Set(existing.map(studentIdentity));
+  const students = [];
+  let skipped = 0;
+  for (const student of input) {
+    const identity = studentIdentity(student);
+    if (seen.has(identity)) { skipped++; continue; }
+    seen.add(identity);
+    students.push(student);
+  }
+  return { students, skipped };
+}
