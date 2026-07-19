@@ -564,8 +564,18 @@ dialog form {
   min-width: 76px;
 }
 .board-toolbar input[type="color"] {
-  height: 32px;
+  flex: 0 0 36px;
+  width: 36px;
+  min-width: 36px;
+  height: 36px;
   padding: 2px;
+  border-radius: 6px;
+}
+.board-toolbar label.color-tool {
+  display: block;
+  width: 36px;
+  min-width: 36px;
+  font-size: 0;
 }
 .monitor-main {
   padding: 0.7rem 1rem 5rem;
