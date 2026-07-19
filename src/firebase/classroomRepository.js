@@ -18,13 +18,24 @@ export async function listMyClasses(uid) {
 }
 export async function getClassroom(classId) { return (await get(ref(database, `classes/${classId}`))).val(); }
 export async function getClassroomExpiresAt(classId) {
-  const expiresAt = (await get(ref(database, `classes/${classId}/expiresAt`))).val();
-  if (expiresAt) return expiresAt;
-  const createdAt = (await get(ref(database, `classes/${classId}/createdAt`))).val();
-  return createdAt ? Number(createdAt) + CLASSROOM_TTL_MS : null;
+  const [expirationSnapshot, createdSnapshot] = await Promise.all([get(ref(database, `classes/${classId}/expiresAt`)), get(ref(database, `classes/${classId}/createdAt`))]);
+  const expiresAt = Number(expirationSnapshot.val()), createdAt = Number(createdSnapshot.val());
+  const policyExpiration = createdAt > 0 ? createdAt + CLASSROOM_TTL_MS : 0;
+  if (expiresAt > 0) return policyExpiration ? Math.min(expiresAt, policyExpiration) : expiresAt;
+  return policyExpiration || null;
 }
 export function watchClassroom(classId, callback, onError) { return onValue(ref(database, `classes/${classId}`), (snap) => callback(snap.val()), onError); }
-export function watchClassroomExpiresAt(classId, callback, onError) { return onValue(ref(database, `classes/${classId}/expiresAt`), (snap) => callback(snap.val()), onError); }
+export function watchClassroomExpiresAt(classId, callback, onError) {
+  let expiresAt, createdAt, expirationLoaded = false, createdLoaded = false;
+  const emit = () => {
+    if (!expirationLoaded || !createdLoaded) return;
+    const policyExpiration = Number(createdAt) > 0 ? Number(createdAt) + CLASSROOM_TTL_MS : 0;
+    callback(Number(expiresAt) > 0 ? (policyExpiration ? Math.min(Number(expiresAt), policyExpiration) : Number(expiresAt)) : policyExpiration || null);
+  };
+  const stopExpiration = onValue(ref(database, `classes/${classId}/expiresAt`), (snap) => { expiresAt = snap.val(); expirationLoaded = true; emit(); }, onError);
+  const stopCreated = onValue(ref(database, `classes/${classId}/createdAt`), (snap) => { createdAt = snap.val(); createdLoaded = true; emit(); }, onError);
+  return () => { stopExpiration(); stopCreated(); };
+}
 export async function saveClassroom(classId, values) { await update(ref(database, `classes/${classId}`), { ...values, updatedAt: Date.now() }); }
 export async function closeClassroom(classId, closed) { await update(ref(database, `classes/${classId}`), { status: closed ? "closed" : "active", allowStudentWriting: !closed, updatedAt: Date.now() }); }
 export async function setStudentPinned(classId, studentId, pinned) { await set(ref(database, `classes/${classId}/pinnedStudents/${studentId}`), pinned ? true : null); }

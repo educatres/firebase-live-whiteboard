@@ -54,7 +54,7 @@ pnpm build
    - `localhost`
    - `127.0.0.1`
 
-5. 權限資料會在首次使用後依規則建立於 `classes`、`students`、`boards`、`activeStrokes`、`presence`、`userClasses`、`teacherKeys`、`teacherKeyClaims`、`teacherSlots` 與 `boardLookup` 節點，不需手動建立空資料表。課程建立滿 48 小時後，會在老師下次使用首頁、管理頁或監看頁時自動清除。
+5. 權限資料會在首次使用後依規則建立於 `classes`、`students`、`boards`、`activeStrokes`、`presence`、`userClasses`、`teacherKeys`、`teacherKeyClaims`、`teacherSlots` 與 `boardLookup` 節點，不需手動建立空資料表。課程建立滿 12 小時後，會在老師下次使用首頁、管理頁或監看頁時自動清除。
 
 ## GitHub Pages
 

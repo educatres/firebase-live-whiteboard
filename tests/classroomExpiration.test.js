@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { CLASSROOM_TTL_MS, classroomExpiresAt, formatClassroomRemaining, isClassroomExpired } from "../src/utils/classroomExpiration.js";
 
-describe("課程 48 小時到期", () => {
+describe("課程 12 小時到期", () => {
   it("從建立時間推算舊課程到期時間", () => {
     expect(classroomExpiresAt({ createdAt: 1_000 })).toBe(1_000 + CLASSROOM_TTL_MS);
   });
@@ -9,6 +9,10 @@ describe("課程 48 小時到期", () => {
   it("優先採用固定 expiresAt", () => {
     expect(classroomExpiresAt({ createdAt: 1_000, expiresAt: 2_000 })).toBe(2_000);
     expect(isClassroomExpired({ expiresAt: 2_000 }, 2_000)).toBe(true);
+  });
+
+  it("既有 48 小時課程也縮短為建立後 12 小時", () => {
+    expect(classroomExpiresAt({ createdAt: 1_000, expiresAt: 1_000 + 48 * 60 * 60 * 1000 })).toBe(1_000 + CLASSROOM_TTL_MS);
   });
 
   it("以小時與分鐘顯示剩餘時間", () => {

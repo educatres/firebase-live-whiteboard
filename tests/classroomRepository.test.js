@@ -19,7 +19,7 @@ describe("課程建立與到期清理", () => {
     databaseMocks.get.mockResolvedValue({ val: () => 0 });
   });
 
-  it("建立時寫入 48 小時後的固定到期時間", async () => {
+  it("建立時寫入 12 小時後的固定到期時間", async () => {
     vi.spyOn(Date, "now").mockReturnValue(1_000_000);
     await createClassroom("teacher", { title: "數學課" });
     const classroom = databaseMocks.update.mock.calls[0][1]["classes/class-1"];
@@ -29,6 +29,11 @@ describe("課程建立與到期清理", () => {
 
   it("舊課程沒有 expiresAt 時從 createdAt 推算", async () => {
     databaseMocks.get.mockResolvedValueOnce({ val: () => null }).mockResolvedValueOnce({ val: () => 5_000 });
+    await expect(getClassroomExpiresAt("class-1")).resolves.toBe(5_000 + CLASSROOM_TTL_MS);
+  });
+
+  it("既有 48 小時 expiresAt 仍套用 12 小時上限", async () => {
+    databaseMocks.get.mockResolvedValueOnce({ val: () => 5_000 + 48 * 60 * 60 * 1000 }).mockResolvedValueOnce({ val: () => 5_000 });
     await expect(getClassroomExpiresAt("class-1")).resolves.toBe(5_000 + CLASSROOM_TTL_MS);
   });
 
