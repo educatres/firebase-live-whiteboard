@@ -57,6 +57,7 @@
     "teacherKeyClaims": {
       "$classId": {
         ".read": "auth != null && root.child('classes').child($classId).child('admins').child(auth.uid).val() === true",
+        ".write": "auth != null && !newData.exists() && root.child('classes').child($classId).child('admins').child(auth.uid).val() === true",
         "$uid": {
           ".read": "auth != null && (auth.uid === $uid || root.child('classes').child($classId).child('admins').child(auth.uid).val() === true)",
           ".write": "auth != null && ((auth.uid === $uid && !newData.exists()) || (root.child('classes').child($classId).child('admins').child(auth.uid).val() === true && !newData.exists()) || (auth.uid === $uid && newData.isString() && root.child('teacherKeys').child($classId).isString() && newData.val() === root.child('teacherKeys').child($classId).val()))",

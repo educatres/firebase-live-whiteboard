@@ -48,6 +48,15 @@ describe("Realtime Database 權限",()=>{
     await assertSucceeds(set(ref(secondDb,`userClasses/key-monitor-2/${keyClass}`),true));
     await assertSucceeds(update(ref(firstDb,`classes/${keyClass}`),{activityName:"第一台管理",updatedAt:2}));
     await assertSucceeds(update(ref(secondDb,`classes/${keyClass}`),{activityName:"第二台管理",updatedAt:3}));
+    await assertSucceeds(update(ref(secondDb),{
+      [`classes/${keyClass}`]:null,
+      [`userClasses/key-teacher/${keyClass}`]:null,
+      [`userClasses/key-monitor-1/${keyClass}`]:null,
+      [`userClasses/key-monitor-2/${keyClass}`]:null,
+      [`teacherSlots/${keyClass}`]:null,
+      [`teacherKeys/${keyClass}`]:null,
+      [`teacherKeyClaims/${keyClass}`]:null
+    }));
   });
   it("同一課堂所有已註冊監看裝置享有相同老師權限",async()=>{
     const sharedClass="class-shared-rights",sharedStudent="student-shared-rights",sharedBoard="23456789abcdefghjkmnpqrs",displayToken="23456789ABCDEFGHJKLMNPQR",inviteToken="ABCDEFGHJKLMNPQRSTUVWX29",now=Date.now(),peerUid="shared-monitor",peerDb=env.authenticatedContext(peerUid).database();
