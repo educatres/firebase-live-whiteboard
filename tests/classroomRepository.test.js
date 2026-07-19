@@ -24,6 +24,8 @@ describe("課程建立與到期清理", () => {
     await createClassroom("teacher", { title: "數學課" });
     const classroom = databaseMocks.update.mock.calls[0][1]["classes/class-1"];
     expect(classroom.expiresAt).toBe(1_000_000 + CLASSROOM_TTL_MS);
+    expect(databaseMocks.set).toHaveBeenCalledTimes(1);
+    expect(databaseMocks.set).toHaveBeenCalledWith("teacherKeys/class-1", "123456");
     vi.restoreAllMocks();
   });
 

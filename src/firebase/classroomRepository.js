@@ -8,7 +8,6 @@ export async function createClassroom(uid, values) {
   const classId = randomId(10); const offset = Number((await get(ref(database, ".info/serverTimeOffset"))).val()) || 0; setServerTimeOffset(offset); const now = Date.now() + offset;
   const classroom = { title: values.title.trim(), className: values.className?.trim() || "", activityName: values.activityName?.trim() || "", createdAt: now, expiresAt: now + CLASSROOM_TTL_MS, updatedAt: now, status: "active", allowStudentWriting: true, allowStudentClear: false, showTeacherAnnotations: true, studentCount: 0, admins: { [uid]: true }, studentOrder: {}, boardPages: { main: { id: "main", order: 0, createdAt: now, createdBy: uid } } };
   await update(ref(database), { [`classes/${classId}`]: classroom, [`userClasses/${uid}/${classId}`]: true });
-  await set(ref(database, `teacherSlots/${classId}/1`), uid);
   await set(ref(database, `teacherKeys/${classId}`), teacherAccessKey());
   recordClassroomCreated(classId, now);
   return classId;

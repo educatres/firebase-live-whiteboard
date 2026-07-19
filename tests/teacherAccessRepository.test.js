@@ -11,12 +11,12 @@ const databaseMocks = vi.hoisted(() => ({
 vi.mock("firebase/database", () => databaseMocks);
 vi.mock("../src/firebase/config.js", () => ({ database: {} }));
 
-import { claimTeacherInvite, claimTeacherKey, createTeacherInvite, ensureTeacherAccessKey, resetOtherTeacherDevices } from "../src/firebase/teacherAccessRepository.js";
+import { claimTeacherInvite, claimTeacherKey, createTeacherInvite, ensureTeacherAccessKey } from "../src/firebase/teacherAccessRepository.js";
 
 describe("跨裝置老師授權", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    databaseMocks.get.mockImplementation(async (path) => ({ val: () => path.endsWith("/admins") ? { teacher: true } : { 1: "teacher" } }));
+    databaseMocks.get.mockResolvedValue({ val: () => null });
     databaseMocks.set.mockResolvedValue();
     databaseMocks.update.mockResolvedValue();
   });
@@ -34,13 +34,6 @@ describe("跨裝置老師授權", () => {
     expect(changes[`classes/class-1/teacherInviteTokens/${invite.token}`]).toBe(true);
   });
 
-  it("五台老師裝置已滿時不再產生邀請", async () => {
-    databaseMocks.get.mockImplementation(async (path) => ({ val: () => path.endsWith("/admins") ? { a: true, b: true, c: true, d: true, e: true } : { 1: "a", 2: "b", 3: "c", 4: "d", 5: "e" } }));
-
-    await expect(createTeacherInvite("class-1", "teacher-1")).rejects.toThrow("5 台老師裝置上限");
-    expect(databaseMocks.update).not.toHaveBeenCalled();
-  });
-
   it("建立或讀取六位數老師密鑰", async () => {
     databaseMocks.runTransaction.mockResolvedValue({ snapshot: { val: () => "012345" } });
 
@@ -49,15 +42,15 @@ describe("跨裝置老師授權", () => {
   });
 
   it("使用正確六位數密鑰取得相同管理權限", async () => {
-    databaseMocks.get.mockResolvedValue({ val: () => ({ 1: "teacher-1" }) });
-    databaseMocks.runTransaction.mockImplementation(async (_target, updateSlot) => ({ snapshot: { val: () => updateSlot(null) } }));
-
     await claimTeacherKey("class-1", "012345", "teacher-2");
 
     expect(databaseMocks.set).toHaveBeenNthCalledWith(1, "teacherKeyClaims/class-1/teacher-2", "012345");
     expect(databaseMocks.set).toHaveBeenNthCalledWith(2, "classes/class-1/admins/teacher-2", true);
     expect(databaseMocks.set).toHaveBeenNthCalledWith(3, "userClasses/teacher-2/class-1", true);
     expect(databaseMocks.set).toHaveBeenNthCalledWith(4, "teacherKeyClaims/class-1/teacher-2", null);
+    expect(databaseMocks.get).not.toHaveBeenCalled();
+    expect(databaseMocks.runTransaction).not.toHaveBeenCalled();
+    expect(databaseMocks.set.mock.calls.some(([path]) => path.startsWith("teacherSlots/"))).toBe(false);
   });
 
   it("拒絕格式錯誤或不正確的老師密鑰", async () => {
@@ -86,23 +79,4 @@ describe("跨裝置老師授權", () => {
     });
   });
 
-  it("保留目前裝置並一次解除其他老師裝置", async () => {
-    databaseMocks.get.mockImplementation(async (path) => ({ val: () => {
-      if (path.endsWith("/admins")) return { "teacher-1": true, "monitor-1": true, "monitor-2": true };
-      if (path.startsWith("teacherSlots/")) return { 1: "teacher-1", 2: "monitor-1", 3: "monitor-2" };
-      return { "monitor-2": "ABCDEFGHJKLMNPQRSTUVWX23" };
-    } }));
-
-    await expect(resetOtherTeacherDevices("class-1", "teacher-1")).resolves.toBe(2);
-    expect(databaseMocks.update).toHaveBeenCalledWith("", expect.objectContaining({
-      "classes/class-1/admins/monitor-1": null,
-      "classes/class-1/admins/monitor-2": null,
-      "userClasses/monitor-1/class-1": null,
-      "userClasses/monitor-2/class-1": null,
-      "teacherSlots/class-1/2": null,
-      "teacherSlots/class-1/3": null,
-      "teacherClaims/class-1/monitor-2": null,
-      "teacherInvites/ABCDEFGHJKLMNPQRSTUVWX23": null
-    }));
-  });
 });
