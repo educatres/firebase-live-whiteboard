@@ -10,7 +10,7 @@ const mocks = vi.hoisted(() => ({
 vi.mock("firebase/auth", () => ({ browserLocalPersistence: "LOCAL", setPersistence: mocks.setPersistence, signInAnonymously: mocks.signInAnonymously, signOut: mocks.signOut }));
 vi.mock("../src/firebase/config.js", () => ({ auth: mocks.auth }));
 
-import { ensureAnonymousUser, ensureFreshAnonymousUser } from "../src/firebase/auth.js";
+import { ensureAnonymousUser, ensureFreshAnonymousUser, isInvalidAuthTokenError } from "../src/firebase/auth.js";
 
 describe("匿名老師驗證持久化", () => {
   beforeEach(() => {
@@ -50,5 +50,10 @@ describe("匿名老師驗證持久化", () => {
     expect(stale.getIdToken).toHaveBeenCalledWith(true);
     expect(mocks.signOut).toHaveBeenCalledWith(mocks.auth);
     expect(mocks.signInAnonymously).toHaveBeenCalledWith(mocks.auth);
+  });
+
+  it("辨識資料庫回傳的 Invalid token in path", () => {
+    expect(isInvalidAuthTokenError(new Error("Invalid token in path"))).toBe(true);
+    expect(isInvalidAuthTokenError({ code: "PERMISSION_DENIED", message: "Permission denied" })).toBe(false);
   });
 });

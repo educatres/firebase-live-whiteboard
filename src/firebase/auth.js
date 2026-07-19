@@ -14,9 +14,15 @@ export function ensureAnonymousUser() {
   return pending;
 }
 
-function isInvalidToken(error) {
+export function isInvalidAuthTokenError(error) {
   const detail = `${error?.code || ""} ${error?.message || ""}`.toLowerCase();
   return detail.includes("invalid-user-token") || detail.includes("user-token-expired") || detail.includes("invalid token");
+}
+
+export async function renewAnonymousUser() {
+  await signOut(auth);
+  pending = null;
+  return ensureAnonymousUser();
 }
 
 export async function ensureFreshAnonymousUser() {
@@ -26,9 +32,7 @@ export async function ensureFreshAnonymousUser() {
     await user.getIdToken(true);
     return user;
   } catch (error) {
-    if (!isInvalidToken(error)) throw error;
-    await signOut(auth).catch(() => {});
-    pending = null;
-    return ensureAnonymousUser();
+    if (!isInvalidAuthTokenError(error)) throw error;
+    return renewAnonymousUser();
   }
 }

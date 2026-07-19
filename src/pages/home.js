@@ -1,4 +1,4 @@
-import { ensureAnonymousUser, ensureFreshAnonymousUser } from "../firebase/auth.js";
+import { ensureAnonymousUser, ensureFreshAnonymousUser, isInvalidAuthTokenError, renewAnonymousUser } from "../firebase/auth.js";
 import { cleanupExpiredClassroom, createClassroom, listMyClasses } from "../firebase/classroomRepository.js";
 import { watchConnection } from "../firebase/connection.js";
 import { rememberTeacherSession } from "../teacher/localSession.js";
@@ -13,5 +13,5 @@ async function load(){renderStats();try{user ||= await ensureAnonymousUser();con
 function escapeHtml(v){const d=document.createElement("div");d.textContent=String(v);return d.innerHTML;}
 document.querySelector("#createClassBtn").onclick=()=>dialog.showModal();document.querySelector("#refreshBtn").onclick=load;
 document.querySelector("#clearBrowserRecordsBtn").onclick=()=>{if(!confirmAction("這會清除本網站儲存在此瀏覽器的老師登入暫存、歷史課程統計與介面偏好，但不會刪除資料庫中的課堂與作品。若未保存老師網址與六位數密鑰，可能無法再次進入課程。確定清除？"))return;if(!clearBrowserRecords())return toast("無法清除瀏覽記錄，請檢查瀏覽器儲存空間設定。","error");renderStats();toast("已清除本網站的瀏覽記錄。")};
-form.addEventListener("submit",async(e)=>{e.preventDefault();const button=form.querySelector("button.primary");button.disabled=true;try{user=await ensureFreshAnonymousUser();const id=await createClassroom(user.uid,Object.fromEntries(new FormData(form)));rememberTeacherSession(id,user.uid);location.replace(`./teacher.html?class=${id}`);}catch(error){toast(explainError(error),"error");button.disabled=false;}});
+form.addEventListener("submit",async(e)=>{e.preventDefault();const button=form.querySelector("button.primary"),values=Object.fromEntries(new FormData(form));button.disabled=true;try{user=await ensureFreshAnonymousUser();let id;try{id=await createClassroom(user.uid,values);}catch(error){if(!isInvalidAuthTokenError(error))throw error;user=await renewAnonymousUser();id=await createClassroom(user.uid,values);}rememberTeacherSession(id,user.uid);location.replace(`./teacher.html?class=${id}`);}catch(error){toast(explainError(error),"error");button.disabled=false;}});
 watchConnection(document.querySelector("#connectionBadge"));load();
