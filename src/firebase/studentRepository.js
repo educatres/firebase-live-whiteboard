@@ -7,19 +7,22 @@ export const MAX_STUDENTS = 80;
 
 export async function addStudents(classId, classroom, input) {
   if ((classroom.studentCount || 0) + input.length > MAX_STUDENTS) throw new Error(`每班最多 ${MAX_STUDENTS} 位學生。`);
-  const now = Date.now(); const changes = {};
+  const now = Date.now(); const changes = {}, lookupChanges = {}, lookupCleanup = {};
   const pages = boardPagesMap(classroom.boardPages, { createdAt: classroom.createdAt || now, createdBy: Object.keys(classroom.admins || {})[0] || "system" });
   input.forEach((row, offset) => {
     const studentId = randomId(14); const token = boardToken(); const order = (classroom.studentCount || 0) + offset;
     changes[`students/${studentId}`] = { classId, boardToken: token, seatNumber: row.seatNumber, displayName: row.displayName, studentUid: null, enabled: true, locked: false, createdAt: now, updatedAt: now };
     changes[`classes/${classId}/studentOrder/${studentId}`] = order;
-    changes[`boardLookup/${token}`] = { studentId, classId };
+    lookupChanges[`boardLookup/${token}`] = { studentId, classId };
+    lookupCleanup[`boardLookup/${token}`] = null;
     changes[`boards/${token}/meta`] = { classId, studentId, revision: 0, updatedAt: now };
     changes[`boardPages/${token}`] = pages;
   });
   changes[`classes/${classId}/studentCount`] = (classroom.studentCount || 0) + input.length;
   changes[`classes/${classId}/updatedAt`] = now;
-  await update(ref(database), changes);
+  await update(ref(database), lookupChanges);
+  try { await update(ref(database), changes); }
+  catch (error) { await update(ref(database), lookupCleanup).catch(() => {}); throw error; }
 }
 export async function getStudents(classroom) {
   const order = classroom?.studentOrder || {};
@@ -58,7 +61,10 @@ export async function regenerateBoard(classId, student) {
   const token = boardToken(); const now = Date.now();
   const classroom = (await get(ref(database, `classes/${classId}`))).val() || {};
   const pages = boardPagesMap(classroom.boardPages, { createdAt: classroom.createdAt || now, createdBy: Object.keys(classroom.admins || {})[0] || "system" });
-  await update(ref(database), { [`students/${student.id}/boardToken`]: token, [`students/${student.id}/studentUid`]: null, [`students/${student.id}/updatedAt`]: now, [`boardLookup/${student.boardToken}`]: null, [`boards/${student.boardToken}`]: null, [`boardPages/${student.boardToken}`]: null, [`activeStrokes/${student.boardToken}`]: null, [`boardLookup/${token}`]: { studentId: student.id, classId }, [`boards/${token}/meta`]: { classId, studentId: student.id, revision: 0, updatedAt: now }, [`boardPages/${token}`]: pages });
+  await update(ref(database), { [`boardLookup/${token}`]: { studentId: student.id, classId } });
+  try {
+    await update(ref(database), { [`students/${student.id}/boardToken`]: token, [`students/${student.id}/studentUid`]: null, [`students/${student.id}/updatedAt`]: now, [`boardLookup/${student.boardToken}`]: null, [`boards/${student.boardToken}`]: null, [`boardPages/${student.boardToken}`]: null, [`activeStrokes/${student.boardToken}`]: null, [`boards/${token}/meta`]: { classId, studentId: student.id, revision: 0, updatedAt: now }, [`boardPages/${token}`]: pages });
+  } catch (error) { await update(ref(database), { [`boardLookup/${token}`]: null }).catch(() => {}); throw error; }
   return token;
 }
 export async function deleteStudent(classId, classroom, student) {

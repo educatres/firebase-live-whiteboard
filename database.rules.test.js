@@ -48,6 +48,16 @@ describe("Realtime Database 權限",()=>{
     await assertSucceeds(set(ref(secondDb,`userClasses/key-monitor-2/${keyClass}`),true));
     await assertSucceeds(update(ref(firstDb,`classes/${keyClass}`),{activityName:"第一台管理",updatedAt:2}));
     await assertSucceeds(update(ref(secondDb,`classes/${keyClass}`),{activityName:"第二台管理",updatedAt:3}));
+    const addedStudent="key-added-student",addedBoard="ABCDEFGHabcdefgh23456789",pages={main:{id:"main",order:0,createdAt:1,createdBy:"key-teacher"}};
+    await assertSucceeds(set(ref(secondDb,`boardLookup/${addedBoard}`),{studentId:addedStudent,classId:keyClass}));
+    await assertSucceeds(update(ref(secondDb),{
+      [`students/${addedStudent}`]:{classId:keyClass,boardToken:addedBoard,seatNumber:"01",displayName:"密鑰新增學生",studentUid:null,enabled:true,locked:false,createdAt:4,updatedAt:4},
+      [`classes/${keyClass}/studentOrder/${addedStudent}`]:0,
+      [`classes/${keyClass}/studentCount`]:1,
+      [`classes/${keyClass}/updatedAt`]:4,
+      [`boards/${addedBoard}/meta`]:{classId:keyClass,studentId:addedStudent,revision:0,updatedAt:4},
+      [`boardPages/${addedBoard}`]:pages
+    }));
     await assertSucceeds(update(ref(secondDb),{
       [`classes/${keyClass}`]:null,
       [`userClasses/key-teacher/${keyClass}`]:null,
@@ -55,7 +65,11 @@ describe("Realtime Database 權限",()=>{
       [`userClasses/key-monitor-2/${keyClass}`]:null,
       [`teacherSlots/${keyClass}`]:null,
       [`teacherKeys/${keyClass}`]:null,
-      [`teacherKeyClaims/${keyClass}`]:null
+      [`teacherKeyClaims/${keyClass}`]:null,
+      [`students/${addedStudent}`]:null,
+      [`boardLookup/${addedBoard}`]:null,
+      [`boards/${addedBoard}`]:null,
+      [`boardPages/${addedBoard}`]:null
     }));
   });
   it("同一課堂所有已註冊監看裝置享有相同老師權限",async()=>{

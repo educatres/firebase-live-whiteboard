@@ -63,9 +63,21 @@ describe("addStudents", () => {
     const students = Array.from({ length: 80 }, (_, index) => ({ seatNumber: String(index + 1), displayName: `學生 ${index + 1}` }));
     await addStudents("class-1", { studentCount: 0 }, students);
 
-    const changes = databaseMocks.update.mock.calls[0][1];
+    const lookups = databaseMocks.update.mock.calls[0][1];
+    const changes = databaseMocks.update.mock.calls[1][1];
+    expect(Object.keys(lookups).filter((path) => path.startsWith("boardLookup/"))).toHaveLength(80);
     expect(changes["classes/class-1/studentCount"]).toBe(80);
     expect(Object.keys(changes).filter((path) => path.startsWith("students/"))).toHaveLength(80);
+    expect(Object.keys(changes).filter((path) => path.startsWith("boardPages/"))).toHaveLength(80);
+  });
+
+  it("新增資料失敗時清除預先建立的白板索引", async () => {
+    databaseMocks.update.mockResolvedValueOnce().mockRejectedValueOnce(new Error("PERMISSION_DENIED")).mockResolvedValueOnce();
+
+    await expect(addStudents("class-1", { studentCount: 0 }, [{ seatNumber: "1", displayName: "學生" }])).rejects.toThrow("PERMISSION_DENIED");
+
+    const lookupPath = Object.keys(databaseMocks.update.mock.calls[0][1])[0];
+    expect(databaseMocks.update.mock.calls[2][1]).toEqual({ [lookupPath]: null });
   });
 
   it("拒絕第 81 位學生", async () => {
