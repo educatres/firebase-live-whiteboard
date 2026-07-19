@@ -16,6 +16,7 @@ import { claimTeacherInvite, createTeacherInvite } from "../src/firebase/teacher
 describe("跨裝置老師授權", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    databaseMocks.get.mockImplementation(async (path) => ({ val: () => path.endsWith("/admins") ? { teacher: true } : { 1: "teacher" } }));
     databaseMocks.set.mockResolvedValue();
     databaseMocks.update.mockResolvedValue();
   });
@@ -31,9 +32,16 @@ describe("跨裝置老師授權", () => {
     expect(saved.createdAt).toBeGreaterThanOrEqual(before);
   });
 
+  it("五台老師裝置已滿時不再產生邀請", async () => {
+    databaseMocks.get.mockImplementation(async (path) => ({ val: () => path.endsWith("/admins") ? { a: true, b: true, c: true, d: true, e: true } : { 1: "a", 2: "b", 3: "c", 4: "d", 5: "e" } }));
+
+    await expect(createTeacherInvite("class-1", "teacher-1")).rejects.toThrow("5 台老師裝置上限");
+    expect(databaseMocks.set).not.toHaveBeenCalled();
+  });
+
   it("取得邀請後將新 UID 加入課堂管理員", async () => {
     const token = "ABCDEFGHJKLMNPQRSTUVWX23";
-    databaseMocks.get.mockResolvedValue({ val: () => ({ classId: "class-1", expiresAt: Date.now() + 600000 }) });
+    databaseMocks.get.mockImplementation(async (path) => ({ val: () => path.startsWith("teacherInvites/") ? { classId: "class-1", expiresAt: Date.now() + 600000 } : {} }));
     databaseMocks.runTransaction.mockImplementation(async (_target, updateClaim) => {
       expect(updateClaim(null)).toBe("monitor-1");
       return { committed: true, snapshot: { val: () => "monitor-1" } };
