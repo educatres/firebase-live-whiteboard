@@ -11,7 +11,7 @@ const firebaseConfig = {
 };
 
 const missing = Object.entries(firebaseConfig).filter(([, value]) => !value).map(([key]) => key);
-if (missing.length) throw new Error(`Firebase 尚未設定：${missing.join("、")}`);
+if (missing.length) throw new Error(`資料庫尚未設定：${missing.join("、")}`);
 
 const app = initializeApp(firebaseConfig);
 const auth = initializeAuth(app, { persistence: [indexedDBLocalPersistence, browserLocalPersistence] });

@@ -9,7 +9,7 @@ export function watchServerTimeOffset() {
 export function watchConnection(element) {
   const stopConnection = onValue(ref(database, ".info/connected"), (snapshot) => {
     const online = snapshot.val() === true;
-    element.textContent = online ? "Firebase 已連線" : "Firebase 離線";
+    element.textContent = online ? "資料庫已連線" : "資料庫離線";
     element.className = `badge ${online ? "online" : "offline"}`;
   });
   const stopOffset = watchServerTimeOffset();
