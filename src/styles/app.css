@@ -401,6 +401,28 @@ dialog form {
   width: 100%;
   height: 100%;
 }
+.background-image-layer {
+  position: absolute;
+  inset: 0;
+  transform-origin: 0 0;
+  pointer-events: none;
+}
+.board-background-image {
+  --background-size: 100%;
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: var(--background-size);
+  height: var(--background-size);
+  object-fit: contain;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+  user-select: none;
+  -webkit-user-drag: none;
+}
+.board-background-image[hidden] {
+  display: none;
+}
 .board-stage canvas:not(.readonly-layer) {
   touch-action: none;
   -webkit-user-select: none;
@@ -522,6 +544,25 @@ dialog form {
   border-radius: 7px;
   background: #fff;
   color: var(--navy);
+}
+.background-url-tool input[type="url"] {
+  width: min(300px, 48vw);
+  min-width: 230px;
+  padding: 0.4rem 0.55rem;
+}
+.board-toolbar label.background-url-tool {
+  min-width: 230px;
+}
+.board-toolbar label.background-scale-tool {
+  min-width: 150px;
+  grid-template-columns: 1fr auto;
+}
+.background-scale-tool input {
+  min-width: 110px;
+}
+.background-scale-tool output {
+  min-width: 42px;
+  text-align: right;
 }
 .board-message {
   padding: 1.2rem;
@@ -727,6 +768,21 @@ dialog form {
   height: auto;
   aspect-ratio: 4 / 3;
   background: #fff;
+}
+.preview-board {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  overflow: hidden;
+  background: #fff;
+}
+.preview-board .preview-canvas,
+.preview-board .board-background-image {
+  position: absolute;
+}
+.preview-board .preview-canvas {
+  inset: 0;
+  height: 100%;
 }
 .preview-card .enlarge {
   position: absolute;

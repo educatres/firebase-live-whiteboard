@@ -2,7 +2,7 @@ import { ensureAnonymousUser } from "../firebase/auth.js";
 import { setStudentPinned, watchClassroom } from "../firebase/classroomRepository.js";
 import { getStudents, updateStudent } from "../firebase/studentRepository.js";
 import { clearLayer, createStickyNote, hasAnyAnswers, removeStickyNote, removeStroke, saveStroke, subscribeLayer, subscribeStickyNotes, updateStickyNote } from "../firebase/boardRepository.js";
-import { insertClassBoardPage } from "../firebase/pageRepository.js";
+import { insertClassBoardPage, setClassPageBackground } from "../firebase/pageRepository.js";
 import { watchPresence } from "../firebase/presenceRepository.js";
 import { watchConnection } from "../firebase/connection.js";
 import { claimTeacherInvite } from "../firebase/teacherAccessRepository.js";
@@ -10,6 +10,7 @@ import { BoardEngine, strokePathPoints, traceStrokeSegment } from "../canvas/Boa
 import { StickyNotesLayer } from "../notes/StickyNotesLayer.js";
 import { normalizeGridSize, paginateStudents, prioritizePinned } from "../monitor/studentView.js";
 import { boardPagesMap, normalizeBoardPages, selectMonitoredPage } from "../whiteboard/pages.js";
+import { setBackgroundViewport, showBackgroundImage } from "../whiteboard/backgroundImage.js";
 import { param } from "../utils/url.js";
 import { confirmAction, explainError, toast } from "../utils/ui.js";
 
@@ -21,6 +22,7 @@ let previewOffs = [], previewObservers = [], reviewOffs = [], reviewEngine, revi
 let rotateTimer, presenceOff, presenceRenderKey = "";
 
 watchConnection(document.querySelector("#connectionBadge"));
+document.querySelector("#reviewBackgroundImage").addEventListener("error", () => toast("底圖載入失敗，請確認 Google Drive 圖片已開放知道連結的使用者檢視。", "error"));
 document.querySelector("#teacherLink").href = `./teacher.html?class=${encodeURIComponent(classId || "")}`;
 
 function loadGridSize() { try { return normalizeGridSize(localStorage.getItem(`classpad-grid-size:${classId}`)); } catch { return 4; } }
@@ -41,11 +43,11 @@ function filtered() {
   return prioritizePinned(matches, classroom?.pinnedStudents);
 }
 
-function drawPreview(canvas, maps) {
+function drawPreview(canvas, maps, hasBackground = false) {
   const rect = canvas.getBoundingClientRect(), dpr = devicePixelRatio || 1;
   if (canvas.width !== Math.round(rect.width * dpr) || canvas.height !== Math.round(rect.height * dpr)) { canvas.width = Math.round(rect.width * dpr); canvas.height = Math.round(rect.height * dpr); }
   const ctx = canvas.getContext("2d");
-  ctx.setTransform(dpr, 0, 0, dpr, 0, 0); ctx.clearRect(0, 0, rect.width, rect.height); ctx.fillStyle = "#fff"; ctx.fillRect(0, 0, rect.width, rect.height);
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0); ctx.clearRect(0, 0, rect.width, rect.height); if (!hasBackground) { ctx.fillStyle = "#fff"; ctx.fillRect(0, 0, rect.width, rect.height); }
   for (const map of maps) for (const stroke of map.values()) {
     const path = strokePathPoints(stroke.points || [], stroke.smooth); if (!path.length) continue;
     ctx.strokeStyle = stroke.color; ctx.globalAlpha = stroke.opacity ?? 1; ctx.lineWidth = Math.max(1, stroke.width * .35); ctx.lineCap = "round"; ctx.lineJoin = "round"; ctx.beginPath(); ctx.moveTo(path[0][0] * rect.width, path[0][1] * rect.height);
@@ -68,11 +70,13 @@ function render() {
   grid.innerHTML = visible.map((student) => {
     const monitoredPage = selectMonitoredPage(presence[student.id], classroom?.boardPages);
     student.monitoredPageId = monitoredPage;
-    return `<article class="preview-card" data-id="${student.id}"><div class="preview-head"><strong>${escapeHtml(student.seatNumber)} ${escapeHtml(student.displayName)}</strong><span class="preview-actions"><span class="badge">第 ${pageNumber(monitoredPage)} 頁</span><button class="pin-button" aria-label="${pinned[student.id] ? "取消釘選" : "釘選"} ${escapeHtml(student.displayName)}" aria-pressed="${Boolean(pinned[student.id])}">${pinned[student.id] ? "📌 已釘選" : "📌 釘選"}</button><span class="badge ${presence[student.id]?.online ? "online" : "offline"}">${presence[student.id]?.online ? (presence[student.id]?.drawing ? "書寫中" : "在線") : "離線"}</span>${student.locked ? " <span class=\"badge error\">鎖定</span>" : ""}</span></div><canvas class="preview-canvas"></canvas><button class="enlarge primary">放大批注</button></article>`;
+    return `<article class="preview-card" data-id="${student.id}"><div class="preview-head"><strong>${escapeHtml(student.seatNumber)} ${escapeHtml(student.displayName)}</strong><span class="preview-actions"><span class="badge">第 ${pageNumber(monitoredPage)} 頁</span><button class="pin-button" aria-label="${pinned[student.id] ? "取消釘選" : "釘選"} ${escapeHtml(student.displayName)}" aria-pressed="${Boolean(pinned[student.id])}">${pinned[student.id] ? "📌 已釘選" : "📌 釘選"}</button><span class="badge ${presence[student.id]?.online ? "online" : "offline"}">${presence[student.id]?.online ? (presence[student.id]?.drawing ? "書寫中" : "在線") : "離線"}</span>${student.locked ? " <span class=\"badge error\">鎖定</span>" : ""}</span></div><div class="preview-board"><img class="board-background-image" alt="題目底圖" hidden><canvas class="preview-canvas"></canvas></div><button class="enlarge primary">放大批注</button></article>`;
   }).join("");
   visible.forEach((student) => {
     const card = grid.querySelector(`[data-id="${student.id}"]`), canvas = card.querySelector("canvas"), maps = [new Map(), new Map()], monitoredPage = student.monitoredPageId;
-    const redraw = () => requestAnimationFrame(() => drawPreview(canvas, maps));
+    const background = classPages().find((item) => item.id === monitoredPage)?.backgroundImage;
+    showBackgroundImage(card.querySelector(".board-background-image"), background);
+    const redraw = () => requestAnimationFrame(() => drawPreview(canvas, maps, Boolean(background)));
     previewOffs.push(
       subscribeLayer(student.boardToken, "studentStrokes", { add: (id, value) => { maps[0].set(id, value); student.hasAnswer = true; redraw(); }, remove: (id) => { maps[0].delete(id); redraw(); } }, monitoredPage),
       subscribeLayer(student.boardToken, "teacherStrokes", { add: (id, value) => { maps[1].set(id, value); redraw(); }, remove: (id) => { maps[1].delete(id); redraw(); } }, monitoredPage)
@@ -118,6 +122,17 @@ function renderReviewPageControls() {
   const select = document.querySelector("#insertPagePosition"), selected = Math.min(pages.length + 1, Number(select.value) || index + 2);
   select.innerHTML = Array.from({ length: pages.length + 1 }, (_, optionIndex) => `<option value="${optionIndex + 1}">插入為第 ${optionIndex + 1} 頁</option>`).join("");
   select.value = String(selected);
+  renderReviewBackgroundControls();
+}
+
+function renderReviewBackgroundControls() {
+  const background = classPages().find((item) => item.id === currentReviewPageId)?.backgroundImage;
+  const scale = Math.round((background?.scale || 1) * 100);
+  document.querySelector("#backgroundUrl").value = background?.sourceUrl || "";
+  document.querySelector("#backgroundScale").value = String(scale);
+  document.querySelector("#backgroundScaleLabel").textContent = `${scale}%`;
+  document.querySelector("#removeBackgroundImage").disabled = !background;
+  showBackgroundImage(document.querySelector("#reviewBackgroundImage"), background);
 }
 
 function openReviewPage(pageId) {
@@ -133,7 +148,7 @@ function openReviewPage(pageId) {
     stage: document.querySelector("#reviewStage"), backgroundCanvas: document.querySelector("#reviewBackground"), studentCanvas: document.querySelector("#reviewStudent"), teacherCanvas: document.querySelector("#reviewTeacher"), editableLayer: "teacherStrokes", uid: user.uid,
     onComplete: (stroke) => saveStroke(currentStudent.boardToken, "teacherStrokes", stroke, activePageId).catch((error) => toast(explainError(error), "error")),
     onRemove: (id) => removeStroke(currentStudent.boardToken, "teacherStrokes", id, activePageId).catch((error) => toast(explainError(error), "error")),
-    onViewChange: (view) => reviewStickyNotes?.setViewport(view)
+    onViewChange: (view) => { reviewStickyNotes?.setViewport(view); setBackgroundViewport(document.querySelector("#reviewBackgroundLayer"), view); }
   });
   reviewEngine = activeEngine; reviewEngine.setSmoothing(teacherSmoothing);
   reviewEngine.setTool(dialog.querySelector("button[data-tool].active")?.dataset.tool || "pen");
@@ -157,6 +172,31 @@ dialog.addEventListener("cancel", (event) => { event.preventDefault(); closeRevi
 dialog.querySelectorAll("button[data-tool]").forEach((button) => button.onclick = () => { dialog.querySelectorAll("button[data-tool]").forEach((item) => item.classList.remove("active")); button.classList.add("active"); reviewEngine?.setTool(button.dataset.tool); });
 document.querySelector("#reviewColor").oninput = (event) => reviewEngine?.setColor(event.target.value);
 document.querySelector("#reviewWidth").oninput = (event) => reviewEngine?.setWidth(event.target.value);
+document.querySelector("#backgroundScale").oninput = (event) => {
+  const scale = Number(event.target.value);
+  document.querySelector("#backgroundScaleLabel").textContent = `${scale}%`;
+  const background = classPages().find((item) => item.id === currentReviewPageId)?.backgroundImage;
+  if (background) showBackgroundImage(document.querySelector("#reviewBackgroundImage"), { ...background, scale: scale / 100 });
+};
+document.querySelector("#saveBackgroundImage").onclick = async (event) => {
+  const button = event.currentTarget; button.disabled = true;
+  try {
+    const pages = await setClassPageBackground(classId, classroom, students, user.uid, currentReviewPageId, document.querySelector("#backgroundUrl").value, Number(document.querySelector("#backgroundScale").value) / 100);
+    classroom.boardPages = boardPagesMap(pages, { createdAt: classroom.createdAt, createdBy: user.uid });
+    renderReviewBackgroundControls();
+    toast(`第 ${pageNumber(currentReviewPageId)} 頁底圖已套用，所有學生會同步看到。`);
+  } catch (error) { toast(explainError(error), "error"); } finally { button.disabled = false; }
+};
+document.querySelector("#removeBackgroundImage").onclick = async (event) => {
+  if (!confirmAction("確定移除本頁底圖？學生與老師的筆跡、批注和便條貼不會被刪除。")) return;
+  const button = event.currentTarget; button.disabled = true;
+  try {
+    const pages = await setClassPageBackground(classId, classroom, students, user.uid, currentReviewPageId, null);
+    classroom.boardPages = boardPagesMap(pages, { createdAt: classroom.createdAt, createdBy: user.uid });
+    renderReviewBackgroundControls();
+    toast("本頁底圖已移除。");
+  } catch (error) { toast(explainError(error), "error"); } finally { button.disabled = false; }
+};
 document.querySelector("#reviewUndo").onclick = () => reviewEngine?.undo(); document.querySelector("#reviewRedo").onclick = () => reviewEngine?.redo(); document.querySelector("#reviewResetZoom").onclick = () => reviewEngine?.resetZoom();
 smoothingButton.onclick = () => { teacherSmoothing = !teacherSmoothing; reviewEngine?.setSmoothing(teacherSmoothing); try { localStorage.setItem("classpad-teacher-smoothing", String(teacherSmoothing)); } catch {} renderSmoothingButton(); };
 renderSmoothingButton();

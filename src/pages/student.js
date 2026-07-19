@@ -7,6 +7,7 @@ import { watchConnection } from "../firebase/connection.js";
 import { BoardEngine } from "../canvas/BoardEngine.js";
 import { StickyNotesLayer } from "../notes/StickyNotesLayer.js";
 import { normalizeBoardPages } from "../whiteboard/pages.js";
+import { setBackgroundViewport, showBackgroundImage } from "../whiteboard/backgroundImage.js";
 import { param } from "../utils/url.js";
 import { explainError, toast } from "../utils/ui.js";
 
@@ -24,6 +25,7 @@ let presenceDrawing = false;
 const drawingSettings = { tool: "pen", color: "#173f5f", width: 5 };
 
 watchConnection(document.querySelector("#connectionBadge"));
+document.querySelector("#studentBackgroundImage").addEventListener("error", () => toast("題目底圖載入失敗，請通知老師檢查 Google Drive 分享權限。", "error"));
 
 function setMessage(text) {
   message.textContent = text;
@@ -44,6 +46,11 @@ function renderPageControls() {
   document.querySelector("#studentNextPage").disabled = index >= pages.length - 1;
 }
 
+function renderBackground() {
+  const page = pages.find((item) => item.id === currentPageId);
+  showBackgroundImage(document.querySelector("#studentBackgroundImage"), page?.backgroundImage);
+}
+
 function stopPage() {
   pageOffs.forEach((off) => off?.());
   pageOffs = [];
@@ -55,7 +62,7 @@ function stopPage() {
 
 function openPage(pageId, updatePresence = true) {
   if (!pages.some((page) => page.id === pageId)) pageId = pages[0].id;
-  if (engine && currentPageId === pageId) return renderPageControls();
+  if (engine && currentPageId === pageId) { renderPageControls(); renderBackground(); return; }
   if (user && student) clearActive(token, "student", user.uid);
   presenceDrawing = false;
   stopPage();
@@ -96,7 +103,7 @@ function openPage(pageId, updatePresence = true) {
         ? publishActive(token, "student", user.uid, { ...stroke, points: stroke.points.slice(-80), updatedAt: Date.now(), pageId: activePageId })
         : clearActive(token, "student", user.uid), 100);
     },
-    onViewChange: (view) => stickyNotes.setViewport(view)
+    onViewChange: (view) => { stickyNotes.setViewport(view); setBackgroundViewport(document.querySelector("#studentBackgroundLayer"), view); }
   });
   const activeEngine = engine, activeStickyNotes = stickyNotes;
   engine.setTool(drawingSettings.tool);
@@ -109,6 +116,7 @@ function openPage(pageId, updatePresence = true) {
     subscribeStickyNotes(token, { add: (id, note) => activeStickyNotes.upsert(id, note), change: (id, note) => activeStickyNotes.upsert(id, note), remove: (id) => activeStickyNotes.remove(id) }, activePageId)
   );
   renderPageControls();
+  renderBackground();
   if (updatePresence) setPresencePage(student.classId, student.id, activePageId).catch(() => {});
 }
 
@@ -136,7 +144,7 @@ async function init() {
     lifecycleOffs.push(watchBoardPages(token, (value) => {
       pages = normalizeBoardPages(value);
       if (!pages.some((page) => page.id === currentPageId)) openPage(pages[0].id);
-      else renderPageControls();
+      else { renderPageControls(); renderBackground(); }
     }));
     lifecycleOffs.push(watchStudent(student.id, (value) => {
       if (!value) return setMessage("白板已被老師刪除。");

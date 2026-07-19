@@ -86,6 +86,7 @@
       <div class="review-body">
         <div id="reviewStage" class="board-stage">
           <canvas id="reviewBackground"></canvas>
+          <div id="reviewBackgroundLayer" class="background-image-layer"><img id="reviewBackgroundImage" class="board-background-image" alt="老師分享的題目底圖" hidden /></div>
           <canvas id="reviewStudent"></canvas>
           <canvas id="reviewTeacher"></canvas>
           <div id="reviewStickyLayer" class="sticky-layer" aria-label="便條貼圖層"></div>
@@ -103,6 +104,17 @@
           value="5"
           aria-label="批注粗細"
         />
+        <label class="background-url-tool"
+          >Drive 底圖（需開放連結檢視）
+          <input id="backgroundUrl" type="url" inputmode="url" placeholder="貼上 Google Drive 圖片分享網址" aria-label="Google Drive 圖片分享網址" title="請先將 Google Drive 圖片設為知道連結的使用者可檢視" />
+        </label>
+        <label class="background-scale-tool"
+          >底圖大小
+          <input id="backgroundScale" type="range" min="10" max="150" step="5" value="100" aria-label="底圖大小" />
+          <output id="backgroundScaleLabel" for="backgroundScale">100%</output>
+        </label>
+        <button id="saveBackgroundImage" type="button">套用底圖</button>
+        <button id="removeBackgroundImage" type="button">移除底圖</button>
         <button
           id="toggleSmoothing"
           class="active"

@@ -1,3 +1,5 @@
+import { normalizeBackgroundImage } from "./backgroundImage.js";
+
 export const MAIN_PAGE_ID = "main";
 
 const PAGE_ID_PATTERN = /^(main|page_[A-Za-z0-9_-]{6,48})$/;
@@ -6,12 +8,16 @@ export function normalizeBoardPages(value) {
   const source = Array.isArray(value) ? value : Object.values(value || {});
   const pages = source
     .filter((page) => page && PAGE_ID_PATTERN.test(page.id || ""))
-    .map((page) => ({
-      id: page.id,
-      order: Number.isFinite(Number(page.order)) ? Number(page.order) : Number.MAX_SAFE_INTEGER,
-      createdAt: Number(page.createdAt) || 0,
-      createdBy: typeof page.createdBy === "string" ? page.createdBy : ""
-    }))
+    .map((page) => {
+      const backgroundImage = normalizeBackgroundImage(page.backgroundImage);
+      return {
+        id: page.id,
+        order: Number.isFinite(Number(page.order)) ? Number(page.order) : Number.MAX_SAFE_INTEGER,
+        createdAt: Number(page.createdAt) || 0,
+        createdBy: typeof page.createdBy === "string" ? page.createdBy : "",
+        ...(backgroundImage ? { backgroundImage } : {})
+      };
+    })
     .sort((a, b) => a.order - b.order || a.createdAt - b.createdAt || a.id.localeCompare(b.id));
 
   if (!pages.some((page) => page.id === MAIN_PAGE_ID)) {
@@ -41,7 +47,8 @@ export function boardPagesMap(value, fallback = {}) {
     id: page.id,
     order: page.order,
     createdAt: page.createdAt || fallback.createdAt || Date.now(),
-    createdBy: page.createdBy || fallback.createdBy || "system"
+    createdBy: page.createdBy || fallback.createdBy || "system",
+    ...(page.backgroundImage ? { backgroundImage: page.backgroundImage } : {})
   }]));
 }
 
