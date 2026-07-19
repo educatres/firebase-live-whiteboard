@@ -2,7 +2,7 @@ import { onValue, ref, update } from "firebase/database";
 import { database } from "./config.js";
 import { randomId } from "../utils/random.js";
 import { boardPagesMap, insertBoardPage, normalizeBoardPages } from "../whiteboard/pages.js";
-import { normalizeBackgroundScale, normalizeGoogleDriveImageUrl } from "../whiteboard/backgroundImage.js";
+import { normalizeBackgroundPosition, normalizeBackgroundScale, normalizeGoogleDriveImageUrl } from "../whiteboard/backgroundImage.js";
 
 export function watchBoardPages(token, callback) {
   return onValue(ref(database, `boardPages/${token}`), (snapshot) => callback(normalizeBoardPages(snapshot.val())));
@@ -22,14 +22,21 @@ export async function insertClassBoardPage(classId, classroom, students, uid, po
   return { pageId, pages };
 }
 
-export async function setClassPageBackground(classId, classroom, students, uid, pageId, sourceUrl, scale = 1) {
+export async function setClassPageBackground(classId, classroom, students, uid, pageId, sourceUrl, scale = 1, position = null) {
   const now = Date.now();
   const pages = normalizeBoardPages(classroom?.boardPages);
   const page = pages.find((item) => item.id === pageId);
   if (!page) throw new Error("找不到要設定底圖的白板頁面。");
   if (sourceUrl) {
     const urls = normalizeGoogleDriveImageUrl(sourceUrl);
-    page.backgroundImage = { ...urls, scale: normalizeBackgroundScale(scale), updatedAt: now, updatedBy: uid };
+    page.backgroundImage = {
+      ...urls,
+      scale: normalizeBackgroundScale(scale),
+      x: normalizeBackgroundPosition(position?.x ?? page.backgroundImage?.x),
+      y: normalizeBackgroundPosition(position?.y ?? page.backgroundImage?.y),
+      updatedAt: now,
+      updatedBy: uid
+    };
   } else {
     delete page.backgroundImage;
   }

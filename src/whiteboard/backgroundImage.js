@@ -24,6 +24,11 @@ export function normalizeBackgroundScale(value) {
   return Number.isFinite(scale) ? Math.max(.1, Math.min(1.5, scale)) : 1;
 }
 
+export function normalizeBackgroundPosition(value) {
+  const position = Number(value);
+  return Number.isFinite(position) ? Math.max(0, Math.min(1, position)) : .5;
+}
+
 export function normalizeBackgroundImage(value) {
   if (!value || typeof value.sourceUrl !== "string" || typeof value.imageUrl !== "string") return null;
   if (!googleDriveFileId(value.sourceUrl) || !/^https:\/\/drive[.]google[.]com\/thumbnail[?]id=[A-Za-z0-9_-]+&sz=w2000$/.test(value.imageUrl)) return null;
@@ -31,6 +36,8 @@ export function normalizeBackgroundImage(value) {
     sourceUrl: value.sourceUrl,
     imageUrl: value.imageUrl,
     scale: normalizeBackgroundScale(value.scale),
+    x: normalizeBackgroundPosition(value.x),
+    y: normalizeBackgroundPosition(value.y),
     updatedAt: Number(value.updatedAt) || 0,
     updatedBy: typeof value.updatedBy === "string" ? value.updatedBy : ""
   };
@@ -42,10 +49,14 @@ export function showBackgroundImage(element, value) {
     element.hidden = true;
     element.removeAttribute("src");
     element.style.removeProperty("--background-size");
+    element.style.removeProperty("--background-x");
+    element.style.removeProperty("--background-y");
     return;
   }
   if (element.getAttribute("src") !== background.imageUrl) element.src = background.imageUrl;
   element.style.setProperty("--background-size", `${Math.round(background.scale * 100)}%`);
+  element.style.setProperty("--background-x", `${background.x * 100}%`);
+  element.style.setProperty("--background-y", `${background.y * 100}%`);
   element.hidden = false;
 }
 

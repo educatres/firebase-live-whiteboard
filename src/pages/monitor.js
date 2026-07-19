@@ -22,6 +22,7 @@ let user, classroom, students = [], presence = {}, page = 0, gridSize = loadGrid
 let previewOffs = [], previewObservers = [], reviewOffs = [], reviewEngine, reviewStickyNotes, currentStudent, currentReviewPageId;
 let rotateTimer, presenceOff, presenceRenderKey = "";
 let displayOff, watchedDisplayToken, displayState, followingPageUpdate = false;
+let backgroundMoveMode = false, backgroundMoveDrag = null, backgroundMoveSaving = false;
 
 watchConnection(document.querySelector("#connectionBadge"));
 document.querySelector("#reviewBackgroundImage").addEventListener("error", () => toast("底圖載入失敗，請確認 Google Drive 圖片已開放知道連結的使用者檢視。", "error"));
@@ -151,7 +152,19 @@ async function init() {
   } catch (error) { state.textContent = explainError(error); }
 }
 
-function stopReviewPage() { reviewOffs.forEach((off) => off()); reviewOffs = []; reviewStickyNotes?.destroy(); reviewStickyNotes = null; reviewEngine?.destroy(); reviewEngine = null; }
+function currentReviewBackground() { return classPages().find((item) => item.id === currentReviewPageId)?.backgroundImage; }
+function setBackgroundMoveMode(enabled) {
+  backgroundMoveMode = Boolean(enabled && currentStudent && currentReviewBackground());
+  backgroundMoveDrag = null;
+  const stage = document.querySelector("#reviewStage"), button = document.querySelector("#moveBackgroundImage");
+  stage.classList.toggle("moving-background", backgroundMoveMode);
+  stage.classList.remove("dragging");
+  button.classList.toggle("active", backgroundMoveMode);
+  button.setAttribute("aria-pressed", String(backgroundMoveMode));
+  button.textContent = backgroundMoveMode ? "完成移動" : "移動底圖";
+  reviewEngine?.setEnabled(!backgroundMoveMode);
+}
+function stopReviewPage() { setBackgroundMoveMode(false); reviewOffs.forEach((off) => off()); reviewOffs = []; reviewStickyNotes?.destroy(); reviewStickyNotes = null; reviewEngine?.destroy(); reviewEngine = null; }
 
 function renderReviewPageControls() {
   if (!currentStudent) return;
@@ -166,12 +179,14 @@ function renderReviewPageControls() {
 }
 
 function renderReviewBackgroundControls() {
-  const background = classPages().find((item) => item.id === currentReviewPageId)?.backgroundImage;
+  const background = currentReviewBackground();
   const scale = Math.round((background?.scale || 1) * 100);
   document.querySelector("#backgroundUrl").value = background?.sourceUrl || "";
   document.querySelector("#backgroundScale").value = String(scale);
   document.querySelector("#backgroundScaleLabel").textContent = `${scale}%`;
   document.querySelector("#removeBackgroundImage").disabled = !background;
+  document.querySelector("#moveBackgroundImage").disabled = !background || backgroundMoveSaving;
+  if (!background && backgroundMoveMode) setBackgroundMoveMode(false);
   showBackgroundImage(document.querySelector("#reviewBackgroundImage"), background);
 }
 
@@ -209,13 +224,13 @@ async function openReview(student, pageId) {
 function closeReview() { stopReviewPage(); currentStudent = null; currentReviewPageId = null; dialog.close(); render(); }
 document.querySelector("#closeReview").onclick = closeReview;
 dialog.addEventListener("cancel", (event) => { event.preventDefault(); closeReview(); });
-dialog.querySelectorAll("button[data-tool]").forEach((button) => button.onclick = () => { dialog.querySelectorAll("button[data-tool]").forEach((item) => item.classList.remove("active")); button.classList.add("active"); reviewEngine?.setTool(button.dataset.tool); });
+dialog.querySelectorAll("button[data-tool]").forEach((button) => button.onclick = () => { setBackgroundMoveMode(false); dialog.querySelectorAll("button[data-tool]").forEach((item) => item.classList.remove("active")); button.classList.add("active"); reviewEngine?.setTool(button.dataset.tool); });
 document.querySelector("#reviewColor").oninput = (event) => reviewEngine?.setColor(event.target.value);
 document.querySelector("#reviewWidth").onchange = (event) => reviewEngine?.setWidth(event.target.value);
 document.querySelector("#backgroundScale").oninput = (event) => {
   const scale = Number(event.target.value);
   document.querySelector("#backgroundScaleLabel").textContent = `${scale}%`;
-  const background = classPages().find((item) => item.id === currentReviewPageId)?.backgroundImage;
+  const background = currentReviewBackground();
   if (background) showBackgroundImage(document.querySelector("#reviewBackgroundImage"), { ...background, scale: scale / 100 });
 };
 document.querySelector("#saveBackgroundImage").onclick = async (event) => {
@@ -237,6 +252,42 @@ document.querySelector("#removeBackgroundImage").onclick = async (event) => {
     toast("本頁底圖已移除。");
   } catch (error) { toast(explainError(error), "error"); } finally { button.disabled = false; }
 };
+document.querySelector("#moveBackgroundImage").onclick = () => setBackgroundMoveMode(!backgroundMoveMode);
+const reviewStage = document.querySelector("#reviewStage");
+reviewStage.addEventListener("pointerdown", (event) => {
+  if (!backgroundMoveMode || backgroundMoveSaving) return;
+  const background = currentReviewBackground();
+  if (!background) return;
+  event.preventDefault(); event.stopPropagation();
+  reviewStage.setPointerCapture?.(event.pointerId);
+  backgroundMoveDrag = { pointerId: event.pointerId, pageId: currentReviewPageId, startClientX: event.clientX, startClientY: event.clientY, startX: background.x, startY: background.y, background, x: background.x, y: background.y };
+  reviewStage.classList.add("dragging");
+}, true);
+reviewStage.addEventListener("pointermove", (event) => {
+  const drag = backgroundMoveDrag;
+  if (!drag || event.pointerId !== drag.pointerId) return;
+  event.preventDefault(); event.stopPropagation();
+  const rect = reviewStage.getBoundingClientRect(), viewScale = reviewEngine?.scale || 1;
+  drag.x = Math.max(0, Math.min(1, drag.startX + (event.clientX - drag.startClientX) / viewScale / rect.width));
+  drag.y = Math.max(0, Math.min(1, drag.startY + (event.clientY - drag.startClientY) / viewScale / rect.height));
+  showBackgroundImage(document.querySelector("#reviewBackgroundImage"), { ...drag.background, x: drag.x, y: drag.y });
+}, true);
+async function finishBackgroundMove(event, cancelled = false) {
+  const drag = backgroundMoveDrag;
+  if (!drag || event.pointerId !== drag.pointerId) return;
+  event.preventDefault(); event.stopPropagation();
+  backgroundMoveDrag = null; reviewStage.classList.remove("dragging");
+  if (cancelled || drag.pageId !== currentReviewPageId) { renderReviewBackgroundControls(); return; }
+  backgroundMoveSaving = true; document.querySelector("#moveBackgroundImage").disabled = true;
+  try {
+    const pages = await setClassPageBackground(classId, classroom, students, user.uid, drag.pageId, drag.background.sourceUrl, drag.background.scale, { x: drag.x, y: drag.y });
+    classroom.boardPages = boardPagesMap(pages, { createdAt: classroom.createdAt, createdBy: user.uid });
+    toast("底圖位置已同步給所有學生與展示畫面。");
+  } catch (error) { toast(explainError(error), "error"); }
+  finally { backgroundMoveSaving = false; renderReviewBackgroundControls(); }
+}
+reviewStage.addEventListener("pointerup", (event) => finishBackgroundMove(event), true);
+reviewStage.addEventListener("pointercancel", (event) => finishBackgroundMove(event, true), true);
 document.querySelector("#reviewUndo").onclick = () => reviewEngine?.undo(); document.querySelector("#reviewRedo").onclick = () => reviewEngine?.redo(); document.querySelector("#reviewResetZoom").onclick = () => reviewEngine?.resetZoom();
 smoothingButton.onclick = () => { teacherSmoothing = !teacherSmoothing; reviewEngine?.setSmoothing(teacherSmoothing); try { localStorage.setItem("classpad-teacher-smoothing", String(teacherSmoothing)); } catch {} renderSmoothingButton(); };
 renderSmoothingButton();

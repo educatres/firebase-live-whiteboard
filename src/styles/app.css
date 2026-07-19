@@ -507,9 +507,11 @@ dialog form {
 }
 .board-background-image {
   --background-size: 100%;
+  --background-x: 50%;
+  --background-y: 50%;
   position: absolute;
-  left: 50%;
-  top: 50%;
+  left: var(--background-x);
+  top: var(--background-y);
   width: var(--background-size);
   height: var(--background-size);
   object-fit: contain;
@@ -520,6 +522,13 @@ dialog form {
 }
 .board-background-image[hidden] {
   display: none;
+}
+#reviewStage.moving-background {
+  cursor: grab;
+  touch-action: none;
+}
+#reviewStage.moving-background.dragging {
+  cursor: grabbing;
 }
 .board-stage canvas:not(.readonly-layer) {
   touch-action: none;
@@ -945,6 +954,30 @@ dialog form {
 }
 .review-toolbar {
   position: absolute;
+  justify-content: flex-start;
+  flex-wrap: nowrap;
+  overflow-x: scroll;
+  scrollbar-gutter: stable;
+  scrollbar-width: auto;
+  scrollbar-color: #6f8796 #dce5e7;
+}
+.review-toolbar > * {
+  flex: 0 0 auto;
+}
+.review-toolbar::-webkit-scrollbar {
+  height: 13px;
+}
+.review-toolbar::-webkit-scrollbar-track {
+  background: #dce5e7;
+}
+.review-toolbar::-webkit-scrollbar-thumb {
+  min-width: 48px;
+  background: #6f8796;
+  border: 3px solid #dce5e7;
+  border-radius: 999px;
+}
+.review-toolbar::-webkit-scrollbar-thumb:hover {
+  background: #405e70;
 }
 .prose {
   max-width: 760px;
