@@ -1,7 +1,14 @@
 import { describe, expect, it, vi } from "vitest";
-import { clearBrowserRecords } from "../src/utils/browserRecords.js";
+import { clearBrowserRecords, clearLegacyClassroomHistory } from "../src/utils/browserRecords.js";
 
 describe("清除瀏覽記錄", () => {
+  it("首頁載入時移除舊版課程歷史紀錄", () => {
+    const values = new Map([["classpad.classroomHistory.v1", '{"deleted-class":{"deletedAt":1}}']]);
+    const storage = { removeItem: vi.fn((key) => values.delete(key)) };
+    expect(clearLegacyClassroomHistory(storage)).toBe(true);
+    expect(values.has("classpad.classroomHistory.v1")).toBe(false);
+  });
+
   it("只清除 ClassPad 紀錄並保留 Firebase 驗證權杖", () => {
     const values = new Map([
       ["classpad.classroomHistory.v1", "{}"],

@@ -64,6 +64,7 @@ describe("課程建立與到期清理", () => {
     const changes = databaseMocks.update.mock.calls[0][1];
     expect(changes).toMatchObject({
       "classes/class-1": null,
+      "publicClasses/class-1": null,
       "students/student": null,
       "boards/board-token": null,
       "boardPages/board-token": null,
@@ -71,7 +72,7 @@ describe("課程建立與到期清理", () => {
       "teacherInvites/invite-token": null,
       "displays/display-token": null
     });
-    expect(databaseMocks.set).toHaveBeenCalledWith("publicClasses/class-1", null);
+    expect(databaseMocks.update).toHaveBeenCalledOnce();
   });
 
   it("刪除課堂時略過不存在或不屬於該課堂的關聯路徑", async () => {
@@ -81,21 +82,11 @@ describe("課程建立與到期清理", () => {
 
     await expect(deleteClassroom("class-1", "teacher", classroom, students)).resolves.toBeUndefined();
     const changes = databaseMocks.update.mock.calls[0][1];
-    expect(changes).toMatchObject({ "classes/class-1": null, "students/student": null, "userClasses/teacher/class-1": null });
+    expect(changes).toMatchObject({ "classes/class-1": null, "publicClasses/class-1": null, "students/student": null, "userClasses/teacher/class-1": null });
     expect(changes).not.toHaveProperty("teacherInvites/stale-invite");
     expect(changes).not.toHaveProperty("displays/stale-display");
     expect(changes).not.toHaveProperty("boardLookup/stale-board");
     expect(changes).not.toHaveProperty("boards/stale-board");
-  });
-
-  it("課堂已刪除時不因公開目錄清理失敗而回報失敗", async () => {
-    const consoleError = vi.spyOn(console, "error").mockImplementation(() => {});
-    databaseMocks.set.mockRejectedValueOnce(new Error("PERMISSION_DENIED"));
-    await expect(deleteClassroom("class-1", "teacher", { admins: { teacher: true } }, [])).resolves.toBeUndefined();
-    expect(databaseMocks.update).toHaveBeenCalledOnce();
-    expect(databaseMocks.set).toHaveBeenCalledWith("publicClasses/class-1", null);
-    expect(consoleError).toHaveBeenCalledOnce();
-    consoleError.mockRestore();
   });
 
   it("未到期時不執行清理", async () => {

@@ -337,7 +337,7 @@ button:disabled {
 }
 .class-stat-grid {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: minmax(0, 1fr);
   gap: 1rem;
 }
 .class-stat-card {
@@ -352,15 +352,10 @@ button:disabled {
   box-shadow: var(--shadow);
   font-weight: 750;
 }
-.class-stat-card.created {
+.class-stat-card.active {
   border-color: #a9dcca;
   background: #eefaf5;
   color: #176646;
-}
-.class-stat-card.deleted {
-  border-color: #e7c3c3;
-  background: #fff5f5;
-  color: #8d3535;
 }
 .class-stat-card strong {
   font-size: 2rem;

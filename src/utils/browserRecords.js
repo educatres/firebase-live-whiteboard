@@ -3,6 +3,12 @@ function browserStorage() {
   catch { return null; }
 }
 
+export function clearLegacyClassroomHistory(storage = browserStorage()) {
+  if (!storage) return false;
+  try { storage.removeItem("classpad.classroomHistory.v1"); return true; }
+  catch { return false; }
+}
+
 export function clearBrowserRecords(storage = browserStorage()) {
   if (!storage) return false;
   try {

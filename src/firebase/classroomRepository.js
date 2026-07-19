@@ -2,7 +2,6 @@ import { get, onValue, ref, set, update } from "firebase/database";
 import { database } from "./config.js";
 import { randomId, teacherAccessKey } from "../utils/random.js";
 import { CLASSROOM_TTL_MS, isClassroomExpired, serverNow } from "../utils/classroomExpiration.js";
-import { recordClassroomCreated, recordClassroomDeleted } from "../utils/classroomStats.js";
 
 export async function createClassroom(uid, values) {
   const classId = randomId(10);
@@ -10,7 +9,6 @@ export async function createClassroom(uid, values) {
   const classroom = { title: values.title.trim(), className: values.className?.trim() || "", activityName: values.activityName?.trim() || "", createdAt: now, expiresAt: now + CLASSROOM_TTL_MS, updatedAt: now, status: "active", allowStudentWriting: true, allowStudentClear: false, showTeacherAnnotations: true, studentCount: 0, admins: { [uid]: true }, studentOrder: {}, boardPages: { main: { id: "main", order: 0, createdAt: now, createdBy: uid } } };
   await update(ref(database), { [`classes/${classId}`]: classroom, [`userClasses/${uid}/${classId}`]: true });
   await set(ref(database, `teacherKeys/${classId}`), teacherAccessKey());
-  recordClassroomCreated(classId, now);
   return classId;
 }
 export async function listMyClasses(uid) {
@@ -63,7 +61,7 @@ export async function deleteClassroom(classId, uid, classroom, students) {
     displayToken ? readValue(`displays/${displayToken}`) : null,
     Promise.all(students.map((student) => readValue(`boardLookup/${student.boardToken}`)))
   ]);
-  const changes = { [`classes/${classId}`]: null, [`presence/${classId}`]: null, [`teacherSlots/${classId}`]: null, [`teacherKeys/${classId}`]: null, [`teacherKeyClaims/${classId}`]: null, [`teacherClaims/${classId}`]: null };
+  const changes = { [`classes/${classId}`]: null, [`publicClasses/${classId}`]: null, [`presence/${classId}`]: null, [`teacherSlots/${classId}`]: null, [`teacherKeys/${classId}`]: null, [`teacherKeyClaims/${classId}`]: null, [`teacherClaims/${classId}`]: null };
   for (const adminUid of Object.keys(classroom.admins || { [uid]: true })) changes[`userClasses/${adminUid}/${classId}`] = null;
   inviteTokens.forEach((token, index) => { if (invites[index]?.classId === classId) changes[`teacherInvites/${token}`] = null; });
   if (displayToken && display?.classId === classId) changes[`displays/${displayToken}`] = null;
@@ -76,9 +74,6 @@ export async function deleteClassroom(classId, uid, classroom, students) {
     changes[`activeStrokes/${student.boardToken}`] = null;
   });
   await update(ref(database), changes);
-  recordClassroomDeleted(classId);
-  try { await set(ref(database, `publicClasses/${classId}`), null); }
-  catch (error) { console.error("系統課程清單清理失敗：", error); }
 }
 export async function cleanupExpiredClassroom(classId, uid, classroom, knownStudents) {
   if (!isClassroomExpired(classroom)) return false;
