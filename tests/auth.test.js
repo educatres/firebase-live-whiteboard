@@ -50,6 +50,7 @@ describe("匿名老師驗證持久化", () => {
     expect(stale.getIdToken).toHaveBeenCalledWith(true);
     expect(mocks.signOut).toHaveBeenCalledWith(mocks.auth);
     expect(mocks.signInAnonymously).toHaveBeenCalledWith(mocks.auth);
+    expect(renewed.getIdToken).toHaveBeenCalledWith(true);
   });
 
   it("辨識資料庫回傳的 Invalid token in path", () => {

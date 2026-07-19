@@ -1,6 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const databaseMocks = vi.hoisted(() => ({
+  goOffline: vi.fn(),
+  goOnline: vi.fn(),
   onValue: vi.fn(),
   ref: vi.fn((_database, path) => path)
 }));
@@ -8,7 +10,7 @@ const databaseMocks = vi.hoisted(() => ({
 vi.mock("firebase/database", () => databaseMocks);
 vi.mock("../src/firebase/config.js", () => ({ database: {} }));
 
-import { watchConnection } from "../src/firebase/connection.js";
+import { reconnectDatabase, watchConnection } from "../src/firebase/connection.js";
 
 describe("資料庫連線狀態", () => {
   beforeEach(() => vi.clearAllMocks());
@@ -26,5 +28,11 @@ describe("資料庫連線狀態", () => {
     expect(element).toMatchObject({ textContent: "資料庫已連線", className: "badge online" });
     connectionCallback({ val: () => false });
     expect(element).toMatchObject({ textContent: "資料庫離線", className: "badge offline" });
+  });
+
+  it("換發驗證身分後重新啟動資料庫連線", () => {
+    reconnectDatabase();
+    expect(databaseMocks.goOffline).toHaveBeenCalledWith({});
+    expect(databaseMocks.goOnline).toHaveBeenCalledWith({});
   });
 });

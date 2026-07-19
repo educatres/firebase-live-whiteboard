@@ -22,7 +22,9 @@ export function isInvalidAuthTokenError(error) {
 export async function renewAnonymousUser() {
   await signOut(auth);
   pending = null;
-  return ensureAnonymousUser();
+  const user = await ensureAnonymousUser();
+  await user.getIdToken?.(true);
+  return user;
 }
 
 export async function ensureFreshAnonymousUser() {

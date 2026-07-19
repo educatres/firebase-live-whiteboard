@@ -1,4 +1,4 @@
-import { onValue, ref } from "firebase/database";
+import { goOffline, goOnline, onValue, ref } from "firebase/database";
 import { database } from "./config.js";
 import { setServerTimeOffset } from "../utils/classroomExpiration.js";
 
@@ -14,4 +14,9 @@ export function watchConnection(element) {
   });
   const stopOffset = watchServerTimeOffset();
   return () => { stopConnection(); stopOffset(); };
+}
+
+export function reconnectDatabase() {
+  goOffline(database);
+  goOnline(database);
 }
