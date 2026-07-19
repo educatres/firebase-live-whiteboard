@@ -140,7 +140,8 @@ async function init() {
     stage.hidden = false;
     toolbar.hidden = false;
     openPage(currentPageId, false);
-    presenceStop = await startPresence(student.classId, student.id, user.uid, currentPageId);
+    try { presenceStop = await startPresence(student.classId, student.id, user.uid, currentPageId); }
+    catch (error) { toast("白板已開啟，但在線狀態暫時無法同步。", "error"); console.error(error); }
     lifecycleOffs.push(watchBoardPages(token, (value) => {
       pages = normalizeBoardPages(value);
       if (!pages.some((page) => page.id === currentPageId)) openPage(pages[0].id);

@@ -2,10 +2,11 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
   auth: { currentUser: null, authStateReady: vi.fn() },
-  signInAnonymously: vi.fn()
+  signInAnonymously: vi.fn(),
+  setPersistence: vi.fn()
 }));
 
-vi.mock("firebase/auth", () => ({ signInAnonymously: mocks.signInAnonymously }));
+vi.mock("firebase/auth", () => ({ browserLocalPersistence: "LOCAL", setPersistence: mocks.setPersistence, signInAnonymously: mocks.signInAnonymously }));
 vi.mock("../src/firebase/config.js", () => ({ auth: mocks.auth }));
 
 import { ensureAnonymousUser } from "../src/firebase/auth.js";
@@ -15,6 +16,7 @@ describe("匿名老師驗證持久化", () => {
     mocks.auth.currentUser = null;
     mocks.auth.authStateReady.mockReset();
     mocks.signInAnonymously.mockReset();
+    mocks.setPersistence.mockReset().mockResolvedValue();
   });
 
   it("先等待瀏覽器本機驗證恢復，不建立新的匿名身分", async () => {
@@ -22,6 +24,7 @@ describe("匿名老師驗證持久化", () => {
     mocks.auth.authStateReady.mockImplementation(async () => { mocks.auth.currentUser = restored; });
 
     await expect(ensureAnonymousUser()).resolves.toBe(restored);
+    expect(mocks.setPersistence).toHaveBeenCalledWith(mocks.auth, "LOCAL");
     expect(mocks.signInAnonymously).not.toHaveBeenCalled();
   });
 
