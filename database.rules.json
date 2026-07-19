@@ -16,6 +16,7 @@
         "allowStudentClear": { ".validate": "newData.isBoolean()" },
         "showTeacherAnnotations": { ".validate": "newData.isBoolean()" },
         "studentCount": { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 80" },
+        "displayToken": { ".validate": "newData.isString() && newData.val().matches(/^[A-Za-z0-9_-]{24}$/)" },
         "admins": {
           "$uid": {
             ".write": "auth != null && $uid === auth.uid && !data.exists() && newData.val() === true && root.child('teacherClaims').child($classId).child(auth.uid).isString() && root.child('teacherInvites').child(root.child('teacherClaims').child($classId).child(auth.uid).val()).child('classId').val() === $classId && root.child('teacherInvites').child(root.child('teacherClaims').child($classId).child(auth.uid).val()).child('claimedBy').val() === auth.uid && root.child('teacherInvites').child(root.child('teacherClaims').child($classId).child(auth.uid).val()).child('expiresAt').val() > now && (root.child('teacherSlots').child($classId).child('1').val() === auth.uid || root.child('teacherSlots').child($classId).child('2').val() === auth.uid || root.child('teacherSlots').child($classId).child('3').val() === auth.uid || root.child('teacherSlots').child($classId).child('4').val() === auth.uid || root.child('teacherSlots').child($classId).child('5').val() === auth.uid)",
@@ -104,7 +105,7 @@
     },
     "boardPages": {
       "$boardToken": {
-        ".read": "auth != null && (root.child('students').child(root.child('boardLookup').child($boardToken).child('studentId').val()).child('studentUid').val() === auth.uid || root.child('classes').child(root.child('boardLookup').child($boardToken).child('classId').val()).child('admins').child(auth.uid).val() === true)",
+        ".read": "auth != null && (root.child('students').child(root.child('boardLookup').child($boardToken).child('studentId').val()).child('studentUid').val() === auth.uid || root.child('classes').child(root.child('boardLookup').child($boardToken).child('classId').val()).child('admins').child(auth.uid).val() === true || (root.child('displaySessions').child(auth.uid).child('boardToken').val() === $boardToken && root.child('displays').child(root.child('displaySessions').child(auth.uid).child('displayToken').val()).child('active').val() === true && root.child('displays').child(root.child('displaySessions').child(auth.uid).child('displayToken').val()).child('boardToken').val() === $boardToken))",
         ".write": "auth != null && root.child('classes').child(root.child('boardLookup').child($boardToken).child('classId').val()).child('admins').child(auth.uid).val() === true",
         ".validate": "!newData.exists() || newData.hasChildren(['main'])",
         "$pageId": {
@@ -128,7 +129,7 @@
           "classId": { ".validate": "newData.isString()" }, "studentId": { ".validate": "newData.isString()" }, "revision": { ".validate": "newData.isNumber()" }, "updatedAt": { ".validate": "newData.isNumber()" }, "$other": { ".validate": false }
         },
         "studentStrokes": {
-          ".read": "auth != null && (root.child('students').child(root.child('boardLookup').child($boardToken).child('studentId').val()).child('studentUid').val() === auth.uid || root.child('classes').child(root.child('boardLookup').child($boardToken).child('classId').val()).child('admins').child(auth.uid).val() === true)",
+          ".read": "auth != null && (root.child('students').child(root.child('boardLookup').child($boardToken).child('studentId').val()).child('studentUid').val() === auth.uid || root.child('classes').child(root.child('boardLookup').child($boardToken).child('classId').val()).child('admins').child(auth.uid).val() === true || (root.child('displaySessions').child(auth.uid).child('boardToken').val() === $boardToken && root.child('displays').child(root.child('displaySessions').child(auth.uid).child('displayToken').val()).child('active').val() === true && root.child('displays').child(root.child('displaySessions').child(auth.uid).child('displayToken').val()).child('pageId').val() === 'main'))",
           ".write": "auth != null && root.child('classes').child(root.child('boardLookup').child($boardToken).child('classId').val()).child('admins').child(auth.uid).val() === true",
           "$strokeId": {
             ".write": "auth != null && (root.child('classes').child(root.child('boardLookup').child($boardToken).child('classId').val()).child('admins').child(auth.uid).val() === true || (root.child('students').child(root.child('boardLookup').child($boardToken).child('studentId').val()).child('studentUid').val() === auth.uid && root.child('students').child(root.child('boardLookup').child($boardToken).child('studentId').val()).child('enabled').val() === true && root.child('students').child(root.child('boardLookup').child($boardToken).child('studentId').val()).child('locked').val() === false && root.child('classes').child(root.child('boardLookup').child($boardToken).child('classId').val()).child('status').val() === 'active' && root.child('classes').child(root.child('boardLookup').child($boardToken).child('classId').val()).child('allowStudentWriting').val() === true))",
@@ -137,7 +138,7 @@
           }
         },
         "teacherStrokes": {
-          ".read": "auth != null && (root.child('students').child(root.child('boardLookup').child($boardToken).child('studentId').val()).child('studentUid').val() === auth.uid || root.child('classes').child(root.child('boardLookup').child($boardToken).child('classId').val()).child('admins').child(auth.uid).val() === true)",
+          ".read": "auth != null && (root.child('students').child(root.child('boardLookup').child($boardToken).child('studentId').val()).child('studentUid').val() === auth.uid || root.child('classes').child(root.child('boardLookup').child($boardToken).child('classId').val()).child('admins').child(auth.uid).val() === true || (root.child('displaySessions').child(auth.uid).child('boardToken').val() === $boardToken && root.child('displays').child(root.child('displaySessions').child(auth.uid).child('displayToken').val()).child('active').val() === true && root.child('displays').child(root.child('displaySessions').child(auth.uid).child('displayToken').val()).child('pageId').val() === 'main'))",
           ".write": "auth != null && root.child('classes').child(root.child('boardLookup').child($boardToken).child('classId').val()).child('admins').child(auth.uid).val() === true",
           "$strokeId": {
             ".validate": "!newData.exists() || (newData.hasChildren(['id','tool','color','width','opacity','points','createdAt','authorUid']) && newData.child('id').val() === $strokeId && newData.child('tool').val() === 'pen' && newData.child('color').isString() && newData.child('color').val().matches(/^#[0-9A-Fa-f]{6}$/) && newData.child('width').isNumber() && newData.child('width').val() >= 1 && newData.child('width').val() <= 40 && newData.child('opacity').isNumber() && newData.child('opacity').val() >= 0.1 && newData.child('opacity').val() <= 1 && newData.child('points').hasChildren() && newData.child('createdAt').isNumber() && newData.child('authorUid').val() === auth.uid)",
@@ -145,7 +146,7 @@
           }
         },
         "stickyNotes": {
-          ".read": "auth != null && (root.child('students').child(root.child('boardLookup').child($boardToken).child('studentId').val()).child('studentUid').val() === auth.uid || root.child('classes').child(root.child('boardLookup').child($boardToken).child('classId').val()).child('admins').child(auth.uid).val() === true)",
+          ".read": "auth != null && (root.child('students').child(root.child('boardLookup').child($boardToken).child('studentId').val()).child('studentUid').val() === auth.uid || root.child('classes').child(root.child('boardLookup').child($boardToken).child('classId').val()).child('admins').child(auth.uid).val() === true || (root.child('displaySessions').child(auth.uid).child('boardToken').val() === $boardToken && root.child('displays').child(root.child('displaySessions').child(auth.uid).child('displayToken').val()).child('active').val() === true && root.child('displays').child(root.child('displaySessions').child(auth.uid).child('displayToken').val()).child('pageId').val() === 'main'))",
           "$noteId": {
             ".write": "auth != null && root.child('classes').child(root.child('boardLookup').child($boardToken).child('classId').val()).child('admins').child(auth.uid).val() === true",
             ".validate": "!newData.exists() || (newData.hasChildren(['id','text','color','x','y','width','height','createdAt','updatedAt','authorUid']) && newData.child('id').val() === $noteId && newData.child('text').isString() && newData.child('text').val().length <= 500 && (newData.child('color').val() === 'yellow' || newData.child('color').val() === 'blue' || newData.child('color').val() === 'pink' || newData.child('color').val() === 'green') && newData.child('x').isNumber() && newData.child('x').val() >= 0 && newData.child('y').isNumber() && newData.child('y').val() >= 0 && newData.child('width').isNumber() && newData.child('width').val() >= 0.14 && newData.child('height').isNumber() && newData.child('height').val() >= 0.12 && newData.child('x').val() + newData.child('width').val() <= 1 && newData.child('y').val() + newData.child('height').val() <= 1 && newData.child('createdAt').isNumber() && newData.child('updatedAt').isNumber() && newData.child('updatedAt').val() >= newData.child('createdAt').val() && newData.child('authorUid').isString() && ((!data.exists() && newData.child('authorUid').val() === auth.uid) || (data.exists() && newData.child('authorUid').val() === data.child('authorUid').val() && newData.child('createdAt').val() === data.child('createdAt').val())))",
@@ -154,7 +155,7 @@
         },
         "pages": {
           "$pageId": {
-            ".read": "auth != null && (root.child('students').child(root.child('boardLookup').child($boardToken).child('studentId').val()).child('studentUid').val() === auth.uid || root.child('classes').child(root.child('boardLookup').child($boardToken).child('classId').val()).child('admins').child(auth.uid).val() === true)",
+            ".read": "auth != null && (root.child('students').child(root.child('boardLookup').child($boardToken).child('studentId').val()).child('studentUid').val() === auth.uid || root.child('classes').child(root.child('boardLookup').child($boardToken).child('classId').val()).child('admins').child(auth.uid).val() === true || (root.child('displaySessions').child(auth.uid).child('boardToken').val() === $boardToken && root.child('displays').child(root.child('displaySessions').child(auth.uid).child('displayToken').val()).child('active').val() === true && root.child('displays').child(root.child('displaySessions').child(auth.uid).child('displayToken').val()).child('pageId').val() === $pageId))",
             ".validate": "$pageId.matches(/^page_[A-Za-z0-9_-]{6,48}$/) && root.child('boardPages').child($boardToken).child($pageId).exists()",
             "studentStrokes": {
               ".write": "auth != null && (root.child('classes').child(root.child('boardLookup').child($boardToken).child('classId').val()).child('admins').child(auth.uid).val() === true || (root.child('students').child(root.child('boardLookup').child($boardToken).child('studentId').val()).child('studentUid').val() === auth.uid && root.child('students').child(root.child('boardLookup').child($boardToken).child('studentId').val()).child('enabled').val() === true && root.child('students').child(root.child('boardLookup').child($boardToken).child('studentId').val()).child('locked').val() === false && root.child('classes').child(root.child('boardLookup').child($boardToken).child('classId').val()).child('status').val() === 'active' && root.child('classes').child(root.child('boardLookup').child($boardToken).child('classId').val()).child('allowStudentWriting').val() === true))",
@@ -181,6 +182,22 @@
           }
         },
         "$other": { ".validate": false }
+      }
+    },
+    "displays": {
+      "$displayToken": {
+        ".read": "auth != null",
+        ".write": "auth != null && root.child('classes').child(newData.exists() ? newData.child('classId').val() : data.child('classId').val()).child('admins').child(auth.uid).val() === true && root.child('classes').child(newData.exists() ? newData.child('classId').val() : data.child('classId').val()).child('displayToken').val() === $displayToken",
+        ".validate": "!newData.exists() || ($displayToken.matches(/^[A-Za-z0-9_-]{24}$/) && newData.hasChildren(['classId','active','updatedAt','updatedBy']) && newData.child('classId').isString() && newData.child('classId').val().length <= 64 && newData.child('active').isBoolean() && newData.child('updatedAt').isNumber() && newData.child('updatedBy').isString() && newData.child('updatedBy').val().length > 0 && newData.child('updatedBy').val().length <= 128 && (newData.child('active').val() === false || (newData.hasChildren(['studentId','boardToken','pageId','label','followStudent']) && newData.child('studentId').isString() && newData.child('boardToken').isString() && root.child('boardLookup').child(newData.child('boardToken').val()).child('studentId').val() === newData.child('studentId').val() && root.child('boardLookup').child(newData.child('boardToken').val()).child('classId').val() === newData.child('classId').val() && newData.child('pageId').isString() && newData.child('pageId').val().matches(/^(main|page_[A-Za-z0-9_-]{6,48})$/) && newData.child('label').isString() && newData.child('label').val().length <= 100 && newData.child('followStudent').isBoolean())))",
+        "classId": { ".validate": "newData.isString()" }, "active": { ".validate": "newData.isBoolean()" }, "studentId": { ".validate": "newData.isString()" }, "boardToken": { ".validate": "newData.isString()" }, "pageId": { ".validate": "newData.isString()" }, "label": { ".validate": "newData.isString()" }, "followStudent": { ".validate": "newData.isBoolean()" }, "updatedAt": { ".validate": "newData.isNumber()" }, "updatedBy": { ".validate": "newData.isString()" }, "$other": { ".validate": false }
+      }
+    },
+    "displaySessions": {
+      "$uid": {
+        ".read": "auth != null && auth.uid === $uid",
+        ".write": "auth != null && auth.uid === $uid",
+        ".validate": "!newData.exists() || (newData.hasChildren(['displayToken','boardToken','updatedAt']) && newData.child('displayToken').isString() && newData.child('displayToken').val().matches(/^[A-Za-z0-9_-]{24}$/) && newData.child('boardToken').isString() && newData.child('updatedAt').isNumber() && root.child('displays').child(newData.child('displayToken').val()).child('active').val() === true && root.child('displays').child(newData.child('displayToken').val()).child('boardToken').val() === newData.child('boardToken').val())",
+        "displayToken": { ".validate": "newData.isString()" }, "boardToken": { ".validate": "newData.isString()" }, "updatedAt": { ".validate": "newData.isNumber()" }, "$other": { ".validate": false }
       }
     },
     "presence": {

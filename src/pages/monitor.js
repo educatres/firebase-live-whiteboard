@@ -6,6 +6,7 @@ import { insertClassBoardPage, setClassPageBackground } from "../firebase/pageRe
 import { watchPresence } from "../firebase/presenceRepository.js";
 import { watchConnection } from "../firebase/connection.js";
 import { claimTeacherInvite } from "../firebase/teacherAccessRepository.js";
+import { ensureClassDisplay, projectDisplay, stopDisplay, updateProjectedPage, watchDisplay } from "../firebase/displayRepository.js";
 import { BoardEngine, strokePathPoints, traceStrokeSegment } from "../canvas/BoardEngine.js";
 import { StickyNotesLayer } from "../notes/StickyNotesLayer.js";
 import { normalizeGridSize, paginateStudents, prioritizePinned } from "../monitor/studentView.js";
@@ -20,6 +21,7 @@ const monitorToolbar = document.querySelector("#monitorToolbar"), showMonitorToo
 let user, classroom, students = [], presence = {}, page = 0, gridSize = loadGridSize(), teacherSmoothing = loadTeacherSmoothing();
 let previewOffs = [], previewObservers = [], reviewOffs = [], reviewEngine, reviewStickyNotes, currentStudent, currentReviewPageId;
 let rotateTimer, presenceOff, presenceRenderKey = "";
+let displayOff, watchedDisplayToken, displayState, followingPageUpdate = false;
 
 watchConnection(document.querySelector("#connectionBadge"));
 document.querySelector("#reviewBackgroundImage").addEventListener("error", () => toast("底圖載入失敗，請確認 Google Drive 圖片已開放知道連結的使用者檢視。", "error"));
@@ -30,6 +32,40 @@ function loadTeacherSmoothing() { try { return localStorage.getItem("classpad-te
 function classPages() { return normalizeBoardPages(classroom?.boardPages); }
 function pageNumber(pageId) { const index = classPages().findIndex((item) => item.id === pageId); return index < 0 ? 1 : index + 1; }
 function renderSmoothingButton() { smoothingButton.classList.toggle("active", teacherSmoothing); smoothingButton.setAttribute("aria-pressed", String(teacherSmoothing)); smoothingButton.setAttribute("aria-label", teacherSmoothing ? "關閉手寫平滑" : "開啟手寫平滑"); smoothingButton.querySelector("span").textContent = `平滑：${teacherSmoothing ? "開" : "關"}`; }
+function renderProjectionControls() {
+  const active = Boolean(displayState?.active);
+  document.querySelector("#stopProjection").disabled = !active;
+  document.querySelector("#stopReviewProjection").disabled = !active;
+  document.querySelector("#projectReview").textContent = active && displayState.studentId === currentStudent?.id && displayState.pageId === currentReviewPageId ? "投影中" : "投影此頁";
+}
+function connectDisplay(token) {
+  if (!token || token === watchedDisplayToken) return;
+  displayOff?.(); watchedDisplayToken = token;
+  displayOff = watchDisplay(token, (value) => { displayState = value; renderProjectionControls(); render(); });
+}
+async function projectStudent(student, pageId, followStudent) {
+  const token = classroom.displayToken || await ensureClassDisplay(classId, user.uid);
+  classroom.displayToken = token; connectDisplay(token);
+  displayState = await projectDisplay(token, classId, student, pageId, user.uid, followStudent);
+  renderProjectionControls(); render();
+  toast(`已投影 ${student.seatNumber} ${student.displayName}${followStudent ? "，畫面會跟隨書寫頁。" : " 的目前頁面。"}`);
+}
+async function stopCurrentProjection() {
+  if (!classroom?.displayToken) return;
+  await stopDisplay(classroom.displayToken, classId, user.uid);
+  displayState = { classId, active: false };
+  renderProjectionControls(); render();
+  toast("已解除投影，展示畫面已變成黑色。");
+}
+function syncFollowedProjection() {
+  if (!displayState?.active || !displayState.followStudent || followingPageUpdate) return;
+  const student = students.find((item) => item.id === displayState.studentId);
+  if (!student) return;
+  const pageId = selectMonitoredPage(presence[student.id], classroom?.boardPages);
+  if (pageId === displayState.pageId) return;
+  followingPageUpdate = true;
+  updateProjectedPage(classroom.displayToken, pageId, user.uid).catch(() => {}).finally(() => { followingPageUpdate = false; });
+}
 function setToolbarHidden(hidden) { monitorToolbar.hidden = hidden; showMonitorToolbar.hidden = !hidden; document.body.classList.toggle("toolbar-hidden", hidden); try { localStorage.setItem("classpad-monitor-toolbar-hidden", String(hidden)); } catch {} }
 document.querySelector("#hideMonitorToolbar").onclick = () => setToolbarHidden(true);
 showMonitorToolbar.onclick = () => setToolbarHidden(false);
@@ -60,6 +96,7 @@ function drawPreview(canvas, maps, hasBackground = false) {
 function clearPreviews() { previewOffs.forEach((off) => off()); previewOffs = []; previewObservers.forEach((observer) => observer.disconnect()); previewObservers = []; }
 
 function render() {
+  renderProjectionControls();
   if (dialog.open) { renderReviewPageControls(); return; }
   clearPreviews();
   const list = filtered(), view = paginateStudents(list, page, gridSize), visible = view.students, pinned = classroom?.pinnedStudents || {};
@@ -70,7 +107,8 @@ function render() {
   grid.innerHTML = visible.map((student) => {
     const monitoredPage = selectMonitoredPage(presence[student.id], classroom?.boardPages);
     student.monitoredPageId = monitoredPage;
-    return `<article class="preview-card" data-id="${student.id}"><div class="preview-head"><strong>${escapeHtml(student.seatNumber)} ${escapeHtml(student.displayName)}</strong><span class="preview-actions"><span class="badge">第 ${pageNumber(monitoredPage)} 頁</span><button class="pin-button" aria-label="${pinned[student.id] ? "取消釘選" : "釘選"} ${escapeHtml(student.displayName)}" aria-pressed="${Boolean(pinned[student.id])}">${pinned[student.id] ? "📌 已釘選" : "📌 釘選"}</button><span class="badge ${presence[student.id]?.online ? "online" : "offline"}">${presence[student.id]?.online ? (presence[student.id]?.drawing ? "書寫中" : "在線") : "離線"}</span>${student.locked ? " <span class=\"badge error\">鎖定</span>" : ""}</span></div><div class="preview-board"><img class="board-background-image" alt="題目底圖" hidden><canvas class="preview-canvas"></canvas></div><button class="enlarge primary">放大批注</button></article>`;
+    const projecting = displayState?.active && displayState.studentId === student.id;
+    return `<article class="preview-card" data-id="${student.id}"><div class="preview-head"><strong>${escapeHtml(student.seatNumber)} ${escapeHtml(student.displayName)}</strong><span class="preview-actions"><span class="badge">第 ${pageNumber(monitoredPage)} 頁</span><button class="pin-button" aria-label="${pinned[student.id] ? "取消釘選" : "釘選"} ${escapeHtml(student.displayName)}" aria-pressed="${Boolean(pinned[student.id])}">${pinned[student.id] ? "📌 已釘選" : "📌 釘選"}</button><span class="badge ${presence[student.id]?.online ? "online" : "offline"}">${presence[student.id]?.online ? (presence[student.id]?.drawing ? "書寫中" : "在線") : "離線"}</span>${student.locked ? " <span class=\"badge error\">鎖定</span>" : ""}</span></div><div class="preview-board"><img class="board-background-image" alt="題目底圖" hidden><canvas class="preview-canvas"></canvas></div><button class="project-display ${projecting ? "active" : ""}">${projecting ? "投影中" : "投影"}</button><button class="enlarge primary">放大批注</button></article>`;
   }).join("");
   visible.forEach((student) => {
     const card = grid.querySelector(`[data-id="${student.id}"]`), canvas = card.querySelector("canvas"), maps = [new Map(), new Map()], monitoredPage = student.monitoredPageId;
@@ -82,6 +120,7 @@ function render() {
       subscribeLayer(student.boardToken, "teacherStrokes", { add: (id, value) => { maps[1].set(id, value); redraw(); }, remove: (id) => { maps[1].delete(id); redraw(); } }, monitoredPage)
     );
     card.querySelector(".enlarge").onclick = () => openReview(student, monitoredPage);
+    card.querySelector(".project-display").onclick = () => projectStudent(student, monitoredPage, true).catch((error) => toast(explainError(error), "error"));
     card.querySelector(".pin-button").onclick = async () => {
       const next = !Boolean(classroom.pinnedStudents?.[student.id]);
       try { await setStudentPinned(classId, student.id, next); classroom.pinnedStudents = { ...(classroom.pinnedStudents || {}) }; if (next) classroom.pinnedStudents[student.id] = true; else delete classroom.pinnedStudents[student.id]; page = 0; render(); } catch (error) { toast(explainError(error), "error"); }
@@ -100,13 +139,14 @@ async function init() {
     if (inviteToken) { state.textContent = "正在授權這台裝置…"; await claimTeacherInvite(classId, inviteToken, user.uid); const cleanUrl = new URL(location.href); cleanUrl.searchParams.delete("invite"); history.replaceState(null, "", cleanUrl); toast("這台裝置已取得老師權限。"); }
     watchClassroom(classId, (value) => {
       if (!value) { state.textContent = "課堂不存在或權限不足。"; return; }
-      const previousOrder = JSON.stringify(classroom?.studentOrder || {}); classroom = value; document.querySelector("#classTitle").textContent = value.title;
+      const previousOrder = JSON.stringify(classroom?.studentOrder || {}); classroom = value; document.querySelector("#classTitle").textContent = value.title; connectDisplay(value.displayToken);
       if (!students.length || previousOrder !== JSON.stringify(value.studentOrder || {})) loadStudents(); else render();
     });
     presenceOff = watchPresence(classId, (value) => {
       presence = value;
       const nextKey = JSON.stringify(Object.entries(value).map(([studentId, item]) => [studentId, item.online, item.drawing, item.currentPageId, item.lastWrittenPageId]));
       if (nextKey !== presenceRenderKey) { presenceRenderKey = nextKey; render(); }
+      syncFollowedProjection();
     });
   } catch (error) { state.textContent = explainError(error); }
 }
@@ -202,6 +242,9 @@ smoothingButton.onclick = () => { teacherSmoothing = !teacherSmoothing; reviewEn
 renderSmoothingButton();
 document.querySelector("#reviewPrevPage").onclick = () => { const pages = classPages(), index = pages.findIndex((item) => item.id === currentReviewPageId); openReviewPage(pages[Math.max(0, index - 1)].id); };
 document.querySelector("#reviewNextPage").onclick = () => { const pages = classPages(), index = pages.findIndex((item) => item.id === currentReviewPageId); openReviewPage(pages[Math.min(pages.length - 1, index + 1)].id); };
+document.querySelector("#projectReview").onclick = () => currentStudent && projectStudent(currentStudent, currentReviewPageId, false).catch((error) => toast(explainError(error), "error"));
+document.querySelector("#stopProjection").onclick = () => stopCurrentProjection().catch((error) => toast(explainError(error), "error"));
+document.querySelector("#stopReviewProjection").onclick = () => stopCurrentProjection().catch((error) => toast(explainError(error), "error"));
 document.querySelector("#insertBlankPage").onclick = async (event) => {
   const button = event.currentTarget; button.disabled = true;
   try { const result = await insertClassBoardPage(classId, classroom, students, user.uid, Number(document.querySelector("#insertPagePosition").value)); classroom.boardPages = boardPagesMap(result.pages, { createdAt: classroom.createdAt, createdBy: user.uid }); openReviewPage(result.pageId); toast(`已插入為第 ${pageNumber(result.pageId)} 頁。`); } catch (error) { toast(explainError(error), "error"); } finally { button.disabled = false; }
@@ -215,6 +258,6 @@ for (const id of ["searchInput", "onlineOnly", "answeredOnly"]) document.querySe
 document.querySelectorAll("[data-grid-size]").forEach((button) => button.onclick = () => { gridSize = normalizeGridSize(button.dataset.gridSize); page = 0; try { localStorage.setItem(`classpad-grid-size:${classId}`, String(gridSize)); } catch {} render(); });
 document.querySelector("#prevPage").onclick = () => { page--; render(); }; document.querySelector("#nextPage").onclick = () => { page++; render(); };
 document.querySelector("#autoRotate").onchange = (event) => { clearInterval(rotateTimer); if (event.target.checked) rotateTimer = setInterval(() => { const pages = Math.max(1, Math.ceil(filtered().length / gridSize)); page = (page + 1) % pages; render(); }, 10000); };
-addEventListener("pagehide", () => { clearPreviews(); presenceOff?.(); stopReviewPage(); clearInterval(rotateTimer); });
+addEventListener("pagehide", () => { clearPreviews(); presenceOff?.(); displayOff?.(); stopReviewPage(); clearInterval(rotateTimer); });
 
 init();

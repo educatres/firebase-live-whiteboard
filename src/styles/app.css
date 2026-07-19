@@ -369,6 +369,51 @@ dialog form {
   overflow: hidden;
   overscroll-behavior: none;
 }
+.display-page {
+  width: 100vw;
+  height: 100dvh;
+  margin: 0;
+  overflow: hidden;
+  background: #000;
+}
+.display-shell,
+.display-black {
+  width: 100%;
+  height: 100%;
+}
+.display-shell {
+  display: grid;
+  place-items: center;
+  background: #000;
+}
+.display-black {
+  display: grid;
+  place-items: center;
+  color: #758087;
+  background: #000;
+}
+.display-black[hidden] {
+  display: none;
+}
+.display-page .display-stage {
+  width: min(100vw, calc(100dvh * 1.333333));
+  max-width: 100vw;
+  max-height: 100dvh;
+  border-radius: 0;
+  box-shadow: none;
+}
+.display-label {
+  position: absolute;
+  top: 0.75rem;
+  left: 0.75rem;
+  z-index: 12;
+  padding: 0.35rem 0.65rem;
+  color: #fff;
+  background: rgba(12, 30, 43, 0.72);
+  border-radius: 999px;
+  font-weight: 800;
+  pointer-events: none;
+}
 .board-header {
   position: relative;
   height: 62px;
@@ -799,6 +844,17 @@ dialog form {
   position: absolute;
   right: 0.6rem;
   bottom: 0.6rem;
+}
+.preview-card .project-display {
+  position: absolute;
+  left: 0.6rem;
+  bottom: 0.6rem;
+  color: var(--navy);
+  background: #edf3f5;
+}
+.preview-card .project-display.active {
+  color: #fff;
+  background: #d94242;
 }
 .pagination {
   display: flex;

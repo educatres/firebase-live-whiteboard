@@ -21,6 +21,7 @@ export async function closeClassroom(classId, closed) { await update(ref(databas
 export async function setStudentPinned(classId, studentId, pinned) { await set(ref(database, `classes/${classId}/pinnedStudents/${studentId}`), pinned ? true : null); }
 export async function deleteClassroom(classId, uid, classroom, students) {
   const changes = { [`classes/${classId}`]: null, [`userClasses/${uid}/${classId}`]: null, [`presence/${classId}`]: null, [`teacherSlots/${classId}`]: null };
+  if (classroom.displayToken) changes[`displays/${classroom.displayToken}`] = null;
   for (const student of students) { changes[`students/${student.id}`] = null; changes[`boardLookup/${student.boardToken}`] = null; changes[`boards/${student.boardToken}`] = null; changes[`boardPages/${student.boardToken}`] = null; changes[`activeStrokes/${student.boardToken}`] = null; }
   await update(ref(database), changes);
 }
