@@ -79,7 +79,6 @@ export class StudentTextLayer {
     this.editor = document.createElement("textarea");
     this.editor.className = "student-text-editor";
     this.editor.maxLength = MAX_STUDENT_TEXT_LENGTH;
-    this.editor.placeholder = editable ? "在這裡輸入文字…" : "";
     this.editor.setAttribute("aria-label", editable ? "學生文字作答區" : "學生文字作答");
     this.editor.readOnly = true;
     container.replaceChildren(this.editor);

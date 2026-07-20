@@ -801,9 +801,6 @@ dialog form {
   -webkit-user-select: text;
   touch-action: manipulation;
 }
-.student-text-editor::placeholder {
-  color: #82939b;
-}
 .sticky-layer {
   position: absolute;
   inset: 0;
