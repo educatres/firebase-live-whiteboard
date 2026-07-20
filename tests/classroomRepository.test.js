@@ -8,7 +8,7 @@ vi.mock("firebase/database", () => databaseMocks);
 vi.mock("../src/firebase/config.js", () => ({ database: {} }));
 vi.mock("../src/utils/random.js", () => ({ randomId: () => "class-1", teacherAccessKey: () => "123456" }));
 
-import { cleanupExpiredClassroom, createClassroom, deleteClassroom, getClassroomExpiresAt, listAllClasses, syncClassroomDirectory } from "../src/firebase/classroomRepository.js";
+import { cleanupExpiredClassroom, createClassroom, deleteClassroom, getClassroomExpiresAt, listAllClasses, listPublicClassKeys, syncClassroomDirectory } from "../src/firebase/classroomRepository.js";
 import { CLASSROOM_TTL_MS, setServerTimeOffset } from "../src/utils/classroomExpiration.js";
 
 describe("課程建立與到期清理", () => {
@@ -42,6 +42,12 @@ describe("課程建立與到期清理", () => {
       { id: "newer", title: "新課程", updatedAt: 20 },
       { id: "older", title: "舊課程", updatedAt: 10 }
     ]);
+    expect(databaseMocks.get).toHaveBeenCalledWith("publicClasses");
+  });
+
+  it("只列出 publicClasses 第一層 Key", async () => {
+    databaseMocks.get.mockResolvedValueOnce({ val: () => ({ "class-b": { title: "乙班" }, "class-a": { title: "甲班" } }) });
+    await expect(listPublicClassKeys()).resolves.toEqual(["class-a", "class-b"]);
     expect(databaseMocks.get).toHaveBeenCalledWith("publicClasses");
   });
 

@@ -382,6 +382,52 @@ button:disabled {
 .privacy-note {
   margin-top: 2rem;
 }
+.debug-key-footer {
+  width: min(1160px, calc(100% - 2rem));
+  margin: -3.5rem auto 1rem;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.5rem;
+}
+.debug-key-button {
+  width: 2rem;
+  height: 2rem;
+  padding: 0;
+  opacity: 0.32;
+  filter: grayscale(1);
+  background: transparent;
+  font-size: 0.9rem;
+}
+.debug-key-button:hover,
+.debug-key-button:focus-visible,
+.debug-key-button[aria-expanded="true"] {
+  opacity: 0.8;
+}
+.debug-key-panel {
+  width: min(560px, 100%);
+  padding: 0.85rem 1rem;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.96);
+  box-shadow: var(--shadow);
+  font-size: 0.82rem;
+}
+.debug-key-panel[hidden] {
+  display: none;
+}
+.debug-key-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+.debug-firebase-key-list ol {
+  margin: 0.65rem 0 0;
+  padding-left: 1.6rem;
+}
+.debug-firebase-key-list code {
+  overflow-wrap: anywhere;
+}
 .badge {
   display: inline-flex;
   align-items: center;

@@ -20,6 +20,10 @@ export async function listAllClasses() {
   const value = (await get(ref(database, "publicClasses"))).val() || {};
   return Object.entries(value).map(([id, classroom]) => ({ id, ...classroom })).sort((a,b) => b.updatedAt-a.updatedAt);
 }
+export async function listPublicClassKeys() {
+  const value = (await get(ref(database, "publicClasses"))).val() || {};
+  return Object.keys(value).sort();
+}
 export function publicClassroom(classroom) {
   const createdAt = Number(classroom.createdAt);
   return { title: classroom.title, className: classroom.className || "", createdAt, expiresAt: Number(classroom.expiresAt) || createdAt + CLASSROOM_TTL_MS, updatedAt: classroom.updatedAt, status: classroom.status, studentCount: classroom.studentCount || 0 };
