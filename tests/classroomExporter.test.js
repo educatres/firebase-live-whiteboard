@@ -83,4 +83,18 @@ describe("全班作品匯出", () => {
       maxBytes: 3
     })).rejects.toThrow("超過 250 MB");
   });
+
+  it("只有文字作答的頁面也會匯出", async () => {
+    const renderPage = vi.fn(async () => new Blob(["png"]));
+    const result = await exportClassroomZip({
+      classroom: { title: "課堂", boardPages: { main: { id: "main", order: 0 } } },
+      students: [{ id: "student-1", boardToken: "token-1", seatNumber: "01", displayName: "王小明" }],
+      loadPageLayers: async () => ({ studentStrokes: [], studentText: { text: "文字答案", scrollTop: 0 }, teacherStrokes: [] }),
+      renderPage,
+      zipBuilder: async () => new Blob(["zip"])
+    });
+
+    expect(renderPage).toHaveBeenCalledWith(expect.objectContaining({ studentText: { text: "文字答案", scrollTop: 0 } }));
+    expect(result).toMatchObject({ exportedStudents: 1, pageCount: 1, emptyStudents: [] });
+  });
 });

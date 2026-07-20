@@ -1,12 +1,13 @@
 import { ensureAnonymousUser } from "../firebase/auth.js";
 import { bindStudent, resolveBoard, watchStudent } from "../firebase/studentRepository.js";
-import { clearActive, markBoardActivity, publishActive, removeStroke, saveStroke, subscribeLayer, subscribeStickyNotes } from "../firebase/boardRepository.js";
+import { clearActive, markBoardActivity, publishActive, removeStroke, saveStroke, saveStudentText, subscribeLayer, subscribeStickyNotes, subscribeStudentText } from "../firebase/boardRepository.js";
 import { setDrawing, setPresencePage, startPresence } from "../firebase/presenceRepository.js";
 import { watchBoardPages } from "../firebase/pageRepository.js";
 import { watchConnection } from "../firebase/connection.js";
 import { getClassroomExpiresAt, watchClassroomExpiresAt } from "../firebase/classroomRepository.js";
 import { BoardEngine } from "../canvas/BoardEngine.js";
 import { StickyNotesLayer } from "../notes/StickyNotesLayer.js";
+import { StudentTextLayer } from "../text/StudentTextLayer.js";
 import { normalizeBoardPages } from "../whiteboard/pages.js";
 import { setBackgroundViewport, showBackgroundImage } from "../whiteboard/backgroundImage.js";
 import { param } from "../utils/url.js";
@@ -18,7 +19,7 @@ const message = document.querySelector("#boardMessage");
 const stage = document.querySelector("#boardStage");
 const toolbar = document.querySelector("#studentToolbar");
 const sync = document.querySelector("#syncBadge");
-let user, student, engine, stickyNotes, presenceStop, expirationOff, expirationTimerOff, expired = false;
+let user, student, engine, stickyNotes, textLayer, presenceStop, expirationOff, expirationTimerOff, expired = false;
 let pages = normalizeBoardPages();
 let currentPageId = pages[0].id;
 let pageOffs = [], lifecycleOffs = [];
@@ -26,6 +27,7 @@ let activeTimer;
 let presenceDrawing = false;
 let lastActivityAt = 0, lastActivityPageId = "";
 const drawingSettings = { tool: "pen", color: "#173f5f", width: 5 };
+let activeMode = "pen";
 
 watchConnection(document.querySelector("#connectionBadge"));
 document.querySelector("#studentBackgroundImage").addEventListener("error", () => toast("題目底圖載入失敗，請通知老師檢查 Google Drive 分享權限。", "error"));
@@ -59,8 +61,23 @@ function stopPage() {
   pageOffs = [];
   stickyNotes?.destroy();
   stickyNotes = null;
+  textLayer?.destroy();
+  textLayer = null;
   engine?.destroy();
   engine = null;
+}
+
+function canStudentEdit() { return Boolean(student && !student.locked && student.enabled); }
+
+function applyInputMode({ focus = false } = {}) {
+  const enabled = canStudentEdit();
+  engine?.setEnabled(enabled && activeMode !== "text");
+  textLayer?.setEnabled(enabled);
+  textLayer?.setEditing(activeMode === "text");
+  toolbar.querySelectorAll("button[data-tool], button[data-mode]").forEach((button) => button.classList.toggle("active", (button.dataset.tool || button.dataset.mode) === activeMode));
+  document.querySelector("#undoBtn").disabled = activeMode === "text";
+  document.querySelector("#redoBtn").disabled = activeMode === "text";
+  if (focus && activeMode === "text" && enabled) textLayer?.editor.focus({ preventScroll: true });
 }
 
 function expireStudent() {
@@ -92,6 +109,16 @@ function openPage(pageId, updatePresence = true) {
   currentPageId = pageId;
   const activePageId = pageId;
   stickyNotes = new StickyNotesLayer({ container: document.querySelector("#studentStickyLayer") });
+  textLayer = new StudentTextLayer({
+    container: document.querySelector("#studentTextLayer"), editable: true,
+    onChange: async (value) => {
+      setSync("同步中");
+      try { await saveStudentText(token, value, user.uid, activePageId); setSync("已同步", "synced"); }
+      catch (error) { setSync("同步失敗", "error"); throw error; }
+    },
+    onError: (error) => toast(explainError(error, "student"), "error")
+  });
+  const activeTextLayer = textLayer;
   engine = new BoardEngine({
     stage,
     backgroundCanvas: document.querySelector("#backgroundCanvas"),
@@ -128,17 +155,18 @@ function openPage(pageId, updatePresence = true) {
         ? publishActive(token, "student", user.uid, { ...stroke, points: stroke.points.slice(-80), updatedAt: Date.now(), pageId: activePageId })
         : clearActive(token, "student", user.uid), 100);
     },
-    onViewChange: (view) => { stickyNotes.setViewport(view); setBackgroundViewport(document.querySelector("#studentBackgroundLayer"), view); }
+    onViewChange: (view) => { stickyNotes.setViewport(view); activeTextLayer.setViewport(view); setBackgroundViewport(document.querySelector("#studentBackgroundLayer"), view); }
   });
   const activeEngine = engine, activeStickyNotes = stickyNotes;
   engine.setTool(drawingSettings.tool);
   engine.setColor(drawingSettings.color);
   engine.setWidth(drawingSettings.width);
-  engine.setEnabled(!(student.locked || !student.enabled));
+  applyInputMode();
   pageOffs.push(
     subscribeLayer(token, "studentStrokes", { add: (id, stroke) => activeEngine.addStroke("studentStrokes", id, stroke), remove: (id) => activeEngine.removeStroke("studentStrokes", id) }, activePageId),
     subscribeLayer(token, "teacherStrokes", { add: (id, stroke) => activeEngine.addStroke("teacherStrokes", id, stroke), remove: (id) => activeEngine.removeStroke("teacherStrokes", id) }, activePageId),
-    subscribeStickyNotes(token, { add: (id, note) => activeStickyNotes.upsert(id, note), change: (id, note) => activeStickyNotes.upsert(id, note), remove: (id) => activeStickyNotes.remove(id) }, activePageId)
+    subscribeStickyNotes(token, { add: (id, note) => activeStickyNotes.upsert(id, note), change: (id, note) => activeStickyNotes.upsert(id, note), remove: (id) => activeStickyNotes.remove(id) }, activePageId),
+    subscribeStudentText(token, (value) => activeTextLayer.setValue(value), activePageId)
   );
   renderPageControls();
   renderBackground();
@@ -179,7 +207,7 @@ async function init() {
       if (!value) return setMessage("白板已被老師刪除。");
       student = value;
       const locked = value.locked || !value.enabled;
-      engine?.setEnabled(!locked);
+      applyInputMode();
       document.querySelector("#lockBadge").hidden = !locked;
       if (value.studentUid !== user.uid) setMessage("此白板的裝置綁定已變更，請聯絡老師。");
     }));
@@ -193,11 +221,12 @@ async function init() {
 
 function bindToolbar() {
   toolbar.querySelectorAll("button[data-tool]").forEach((button) => button.onclick = () => {
-    toolbar.querySelectorAll("button[data-tool]").forEach((item) => item.classList.remove("active"));
-    button.classList.add("active");
-    drawingSettings.tool = button.dataset.tool;
+    activeMode = button.dataset.tool;
+    drawingSettings.tool = activeMode;
     engine?.setTool(drawingSettings.tool);
+    applyInputMode();
   });
+  document.querySelector("#textToolBtn").onclick = () => { activeMode = "text"; applyInputMode({ focus: true }); };
   document.querySelector("#colorInput").oninput = (event) => { drawingSettings.color = event.target.value; engine?.setColor(drawingSettings.color); };
   document.querySelector("#widthInput").onchange = (event) => { drawingSettings.width = event.target.value; engine?.setWidth(drawingSettings.width); };
   document.querySelector("#undoBtn").onclick = () => engine?.undo();

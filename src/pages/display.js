@@ -1,11 +1,12 @@
 import { ensureAnonymousUser } from "../firebase/auth.js";
-import { subscribeLayer, subscribeStickyNotes } from "../firebase/boardRepository.js";
+import { subscribeLayer, subscribeStickyNotes, subscribeStudentText } from "../firebase/boardRepository.js";
 import { clearDisplaySession, setDisplaySession, watchDisplay } from "../firebase/displayRepository.js";
 import { getClassroomExpiresAt, watchClassroomExpiresAt } from "../firebase/classroomRepository.js";
 import { watchServerTimeOffset } from "../firebase/connection.js";
 import { watchBoardPages } from "../firebase/pageRepository.js";
 import { BoardEngine } from "../canvas/BoardEngine.js";
 import { StickyNotesLayer } from "../notes/StickyNotesLayer.js";
+import { StudentTextLayer } from "../text/StudentTextLayer.js";
 import { setBackgroundViewport, showBackgroundImage } from "../whiteboard/backgroundImage.js";
 import { normalizeBoardPages } from "../whiteboard/pages.js";
 import { param } from "../utils/url.js";
@@ -13,7 +14,7 @@ import { isClassroomExpired, watchClassroomExpiry } from "../utils/classroomExpi
 import { explainError, toast } from "../utils/ui.js";
 
 const token = param("display"), black = document.querySelector("#displayBlack"), stage = document.querySelector("#displayStage"), message = document.querySelector("#displayMessage"), clock = document.querySelector("#displayClock");
-let user, displayOff, expirationOff, expirationTimerOff, expirationClassId, engine, stickyNotes, clockTimer, projectionOffs = [], signature = "", expired = false;
+let user, displayOff, expirationOff, expirationTimerOff, expirationClassId, engine, stickyNotes, textLayer, clockTimer, projectionOffs = [], signature = "", expired = false;
 const stopServerTime = watchServerTimeOffset();
 
 function updateClock() {
@@ -35,6 +36,7 @@ function stopProjection(clearSession = true) {
   projectionOffs.forEach((off) => off?.());
   projectionOffs = [];
   stickyNotes?.destroy(); stickyNotes = null;
+  textLayer?.destroy(); textLayer = null;
   engine?.destroy(); engine = null;
   if (clearSession && user) clearDisplaySession(user.uid).catch(() => {});
 }
@@ -48,19 +50,22 @@ async function showProjection(state) {
   black.hidden = true; stage.hidden = false;
   document.querySelector("#displayLabel").textContent = state.label || "";
   stickyNotes = new StickyNotesLayer({ container: document.querySelector("#displayStickyLayer") });
+  textLayer = new StudentTextLayer({ container: document.querySelector("#displayTextLayer") });
   const activeStickyNotes = stickyNotes;
+  const activeTextLayer = textLayer;
   engine = new BoardEngine({
     stage,
     backgroundCanvas: document.querySelector("#displayBackground"),
     studentCanvas: document.querySelector("#displayStudent"),
     teacherCanvas: document.querySelector("#displayTeacher"),
-    onViewChange: (view) => { activeStickyNotes.setViewport(view); setBackgroundViewport(document.querySelector("#displayBackgroundLayer"), view); }
+    onViewChange: (view) => { activeStickyNotes.setViewport(view); activeTextLayer.setViewport(view); setBackgroundViewport(document.querySelector("#displayBackgroundLayer"), view); }
   });
   const activeEngine = engine, pageId = state.pageId, board = state.boardToken;
   projectionOffs.push(
     subscribeLayer(board, "studentStrokes", { add: (id, stroke) => activeEngine.addStroke("studentStrokes", id, stroke), remove: (id) => activeEngine.removeStroke("studentStrokes", id) }, pageId),
     subscribeLayer(board, "teacherStrokes", { add: (id, stroke) => activeEngine.addStroke("teacherStrokes", id, stroke), remove: (id) => activeEngine.removeStroke("teacherStrokes", id) }, pageId),
     subscribeStickyNotes(board, { add: (id, note) => activeStickyNotes.upsert(id, note), change: (id, note) => activeStickyNotes.upsert(id, note), remove: (id) => activeStickyNotes.remove(id) }, pageId),
+    subscribeStudentText(board, (value) => activeTextLayer.setValue(value), pageId),
     watchBoardPages(board, (value) => {
       const page = normalizeBoardPages(value).find((item) => item.id === pageId);
       showBackgroundImage(document.querySelector("#displayBackgroundImage"), page?.backgroundImage);

@@ -2,6 +2,7 @@ import { drawStrokeOnCanvas } from "../canvas/BoardEngine.js";
 import { getBoardPageLayers } from "../firebase/boardRepository.js";
 import { normalizeBoardPages } from "../whiteboard/pages.js";
 import { createStoredZip } from "../utils/zip.js";
+import { drawStudentText, hasStudentText } from "../text/StudentTextLayer.js";
 
 export const MAX_EXPORT_BYTES = 250 * 1024 * 1024;
 
@@ -18,7 +19,7 @@ function canvasToBlob(canvas) {
   return new Promise((resolve, reject) => canvas.toBlob((blob) => blob ? resolve(blob) : reject(new Error("無法產生 PNG 圖檔。")), "image/png"));
 }
 
-export async function renderPagePng({ classroom, student, pageNumber, studentStrokes, teacherStrokes, exportedAt }) {
+export async function renderPagePng({ classroom, student, pageNumber, studentStrokes, studentText, teacherStrokes, exportedAt }) {
   const canvas = document.createElement("canvas"), width = 1600, drawingHeight = 1200;
   canvas.width = width;
   canvas.height = 1280;
@@ -32,6 +33,7 @@ export async function renderPagePng({ classroom, student, pageNumber, studentStr
   context.save();
   context.translate(0, 80);
   for (const stroke of studentStrokes) drawStrokeOnCanvas(context, stroke, width, drawingHeight);
+  drawStudentText(context, studentText, width, drawingHeight);
   for (const stroke of teacherStrokes) drawStrokeOnCanvas(context, stroke, width, drawingHeight);
   context.restore();
   return canvasToBlob(canvas);
@@ -72,9 +74,9 @@ export async function exportClassroomZip({
     let studentPageCount = 0;
     for (let pageIndex = 0; pageIndex < pages.length; pageIndex++) {
       const layers = await loadPageLayers(student.boardToken, pages[pageIndex].id);
-      const studentStrokes = layerValues(layers?.studentStrokes), teacherStrokes = layerValues(layers?.teacherStrokes);
-      if (!studentStrokes.length && !teacherStrokes.length) continue;
-      const blob = await renderPage({ classroom, student, page: pages[pageIndex], pageNumber: pageIndex + 1, studentStrokes, teacherStrokes, exportedAt });
+      const studentStrokes = layerValues(layers?.studentStrokes), studentText = layers?.studentText, teacherStrokes = layerValues(layers?.teacherStrokes);
+      if (!studentStrokes.length && !teacherStrokes.length && !hasStudentText(studentText)) continue;
+      const blob = await renderPage({ classroom, student, page: pages[pageIndex], pageNumber: pageIndex + 1, studentStrokes, studentText, teacherStrokes, exportedAt });
       totalBytes += blob.size;
       if (totalBytes > maxBytes) throw new Error("匯出的 PNG 總大小超過 250 MB，請分批下載學生作品。");
       files.push({ name: `${folder}/第${String(pageIndex + 1).padStart(2, "0")}頁.png`, data: blob });
@@ -87,7 +89,7 @@ export async function exportClassroomZip({
   }
 
   const emptyList = emptyStudents.length
-    ? ["以下學生沒有任何學生筆跡或老師筆跡：", "", ...emptyStudents.map(studentLabel)].join("\n")
+    ? ["以下學生沒有任何文字、學生筆跡或老師筆跡：", "", ...emptyStudents.map(studentLabel)].join("\n")
     : "所有學生皆有筆記。";
   files.push({ name: "無筆記學生.txt", data: `\uFEFF${emptyList}\n` });
   const blob = await zipBuilder(files, exportedAt);

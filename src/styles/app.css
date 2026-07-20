@@ -753,6 +753,57 @@ dialog form {
 .readonly-layer {
   pointer-events: none;
 }
+.student-text-layer {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+.student-text-editor {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 1600px;
+  height: 1200px;
+  margin: 0;
+  padding: 64px;
+  resize: none;
+  overflow: auto;
+  border: 0;
+  border-radius: 0;
+  outline: 0;
+  color: #183042;
+  background: transparent;
+  font-family: -apple-system, BlinkMacSystemFont, "PingFang TC", "Noto Sans TC", sans-serif;
+  font-size: 40px;
+  font-weight: 400;
+  line-height: 58px;
+  letter-spacing: 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  transform-origin: 0 0;
+  scrollbar-width: none;
+  -webkit-appearance: none;
+  appearance: none;
+}
+.student-text-editor::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+}
+.student-text-layer.editing {
+  pointer-events: auto;
+}
+.student-text-layer.editing .student-text-editor {
+  pointer-events: auto;
+  background: rgba(255, 255, 255, 0.86);
+  box-shadow: inset 0 0 0 5px rgba(32, 99, 155, 0.22);
+  user-select: text;
+  -webkit-user-select: text;
+  touch-action: manipulation;
+}
+.student-text-editor::placeholder {
+  color: #82939b;
+}
 .sticky-layer {
   position: absolute;
   inset: 0;
@@ -1110,12 +1161,17 @@ dialog form {
   background: #fff;
 }
 .preview-board .preview-canvas,
+.preview-board .student-text-layer,
 .preview-board .board-background-image {
   position: absolute;
 }
 .preview-board .preview-canvas {
   inset: 0;
   height: 100%;
+}
+.preview-board .preview-teacher-canvas {
+  background: transparent;
+  pointer-events: none;
 }
 .preview-board.has-background .preview-canvas {
   background: transparent;

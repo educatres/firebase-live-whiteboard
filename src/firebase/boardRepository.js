@@ -1,6 +1,7 @@
 import { get, onChildAdded, onChildChanged, onChildRemoved, onValue, push, ref, remove, serverTimestamp, set, update } from "firebase/database";
 import { database } from "./config.js";
 import { MAIN_PAGE_ID } from "../whiteboard/pages.js";
+import { hasStudentText, MAX_STUDENT_TEXT_LENGTH } from "../text/StudentTextLayer.js";
 
 export function boardLayerPath(pageId, layer) {
   return !pageId || pageId === MAIN_PAGE_ID ? layer : `pages/${pageId}/${layer}`;
@@ -26,19 +27,37 @@ export async function clearLayer(token, layer, pageId = MAIN_PAGE_ID) { await re
 export async function publishActive(token, layer, uid, stroke) { await set(ref(database, `activeStrokes/${token}/${layer}/${uid}`), stroke); }
 export async function clearActive(token, layer, uid) { await remove(ref(database, `activeStrokes/${token}/${layer}/${uid}`)); }
 export function watchActive(token, layer, callback) { return onValue(ref(database, `activeStrokes/${token}/${layer}`), (snap) => callback(snap.val() || {})); }
-export async function hasAnswers(token, pageId = MAIN_PAGE_ID) { return (await get(ref(database, `boards/${token}/${boardLayerPath(pageId, "studentStrokes")}`))).exists(); }
+export async function saveStudentText(token, value, uid, pageId = MAIN_PAGE_ID) {
+  const target = ref(database, `boards/${token}/${boardLayerPath(pageId, "studentText")}`);
+  const text = String(value?.text || "").slice(0, MAX_STUDENT_TEXT_LENGTH);
+  if (text) await set(target, { text, scrollTop: Math.max(0, Math.round(Number(value?.scrollTop) || 0)), layoutVersion: 1, updatedAt: serverTimestamp(), authorUid: uid });
+  else await remove(target);
+  await markBoardActivity(token, "studentText", pageId);
+}
+export function subscribeStudentText(token, callback, pageId = MAIN_PAGE_ID) {
+  return onValue(ref(database, `boards/${token}/${boardLayerPath(pageId, "studentText")}`), (snapshot) => callback(snapshot.val()));
+}
+export async function hasAnswers(token, pageId = MAIN_PAGE_ID) {
+  const [strokes, text] = await Promise.all([
+    get(ref(database, `boards/${token}/${boardLayerPath(pageId, "studentStrokes")}`)),
+    get(ref(database, `boards/${token}/${boardLayerPath(pageId, "studentText")}`))
+  ]);
+  return strokes.exists() || hasStudentText(text.val());
+}
 export async function hasAnyAnswers(token, pageIds = [MAIN_PAGE_ID]) {
   const results = await Promise.all(pageIds.map((pageId) => hasAnswers(token, pageId)));
   return results.some(Boolean);
 }
 export async function getBoardPageLayers(token, pageId = MAIN_PAGE_ID) {
-  const [studentSnapshot, teacherSnapshot] = await Promise.all([
+  const [studentSnapshot, teacherSnapshot, textSnapshot] = await Promise.all([
     get(ref(database, `boards/${token}/${boardLayerPath(pageId, "studentStrokes")}`)),
-    get(ref(database, `boards/${token}/${boardLayerPath(pageId, "teacherStrokes")}`))
+    get(ref(database, `boards/${token}/${boardLayerPath(pageId, "teacherStrokes")}`)),
+    get(ref(database, `boards/${token}/${boardLayerPath(pageId, "studentText")}`))
   ]);
   return {
     studentStrokes: Object.values(studentSnapshot.val() || {}),
-    teacherStrokes: Object.values(teacherSnapshot.val() || {})
+    teacherStrokes: Object.values(teacherSnapshot.val() || {}),
+    studentText: textSnapshot.val()
   };
 }
 export async function createStickyNote(token, note, pageId = MAIN_PAGE_ID) {
