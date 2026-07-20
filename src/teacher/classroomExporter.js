@@ -5,9 +5,9 @@ import { createStoredZip } from "../utils/zip.js";
 import { drawStudentText, hasStudentText } from "../text/StudentTextLayer.js";
 import { backgroundImageDrawRect, googleDriveCanvasImageUrl, normalizeBackgroundImage } from "../whiteboard/backgroundImage.js";
 import { drawStickyNotes, hasStickyNotes, stickyNoteValues } from "../notes/StickyNotesLayer.js";
+import { loadCachedCanvasImage } from "./backgroundImageCache.js";
 
 export const MAX_EXPORT_BYTES = 250 * 1024 * 1024;
-const backgroundImageCache = new Map();
 
 export function sanitizeFilename(value, fallback = "未命名") {
   const cleaned = String(value ?? "").replace(/[<>:"/\\|?*\u0000-\u001f]/g, "-").replace(/[.\s]+$/g, "").trim();
@@ -23,17 +23,7 @@ function canvasToBlob(canvas) {
 }
 
 export function loadCanvasImage(url) {
-  if (backgroundImageCache.has(url)) return backgroundImageCache.get(url);
-  const pending = new Promise((resolve, reject) => {
-    const image = new Image();
-    image.crossOrigin = "anonymous";
-    image.onload = () => resolve(image);
-    image.onerror = () => reject(new Error("底圖載入失敗，請確認 Google Drive 圖片已開放知道連結的使用者檢視。"));
-    image.src = url;
-  });
-  backgroundImageCache.set(url, pending);
-  pending.catch(() => backgroundImageCache.delete(url));
-  return pending;
+  return loadCachedCanvasImage(url);
 }
 
 export async function drawPageBackground(context, value, width = 1600, height = 1200, loadImage = loadCanvasImage) {
