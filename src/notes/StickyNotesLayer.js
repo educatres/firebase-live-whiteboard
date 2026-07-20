@@ -5,6 +5,57 @@ const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
 
 export const STICKY_COLORS = ["yellow", "blue", "pink", "green"];
 export const STICKY_COLOR_LABELS = { yellow: "淡黃", blue: "淡藍", pink: "粉紅", green: "淡綠" };
+export const STICKY_COLOR_VALUES = { yellow: "#fff2a8", blue: "#cfeeff", pink: "#ffd5e5", green: "#d9f5cf" };
+
+export function stickyNoteValues(value) {
+  return (Array.isArray(value) ? value : Object.values(value || {})).filter((note) => note && typeof note === "object");
+}
+
+export function hasStickyNotes(value) { return stickyNoteValues(value).length > 0; }
+
+function wrapStickyText(context, text, maxWidth) {
+  const lines = [];
+  for (const paragraph of String(text || "").replaceAll("\r\n", "\n").split("\n")) {
+    if (!paragraph) { lines.push(""); continue; }
+    let line = "";
+    for (const character of Array.from(paragraph)) {
+      const candidate = line + character;
+      if (line && context.measureText(candidate).width > maxWidth) { lines.push(line); line = character; }
+      else line = candidate;
+    }
+    lines.push(line);
+  }
+  return lines;
+}
+
+export function drawStickyNotes(context, value, width = 1600, height = 1200) {
+  const scale = width / 1600, fontSize = 26 * scale, lineHeight = 36 * scale, padding = 22 * scale;
+  for (const note of stickyNoteValues(value)) {
+    const x = clamp(Number(note.x) || 0, 0, 1) * width, y = clamp(Number(note.y) || 0, 0, 1) * height;
+    const noteWidth = clamp(Number(note.width) || MIN_WIDTH, MIN_WIDTH, 1) * width;
+    const noteHeight = clamp(Number(note.height) || MIN_HEIGHT, MIN_HEIGHT, 1) * height;
+    context.save();
+    context.fillStyle = STICKY_COLOR_VALUES[note.color] || STICKY_COLOR_VALUES.yellow;
+    context.strokeStyle = "rgba(75, 63, 33, 0.22)";
+    context.lineWidth = Math.max(1, 2 * scale);
+    context.fillRect(x, y, noteWidth, noteHeight);
+    context.strokeRect(x, y, noteWidth, noteHeight);
+    context.beginPath();
+    context.rect(x, y, noteWidth, noteHeight);
+    context.clip();
+    context.fillStyle = "#493f28";
+    context.font = `${fontSize}px -apple-system, BlinkMacSystemFont, "PingFang TC", "Noto Sans TC", sans-serif`;
+    context.textBaseline = "top";
+    const lines = wrapStickyText(context, note.text, Math.max(1, noteWidth - padding * 2));
+    let textY = y + padding;
+    for (const line of lines) {
+      if (textY + lineHeight > y + noteHeight - padding) break;
+      context.fillText(line, x + padding, textY);
+      textY += lineHeight;
+    }
+    context.restore();
+  }
+}
 
 export function moveStickyNote(note, deltaX, deltaY) {
   return {

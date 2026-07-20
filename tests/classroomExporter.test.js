@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { exportClassroomZip, sanitizeFilename } from "../src/teacher/classroomExporter.js";
+import { drawPageBackground, exportClassroomZip, sanitizeFilename } from "../src/teacher/classroomExporter.js";
 
 const classroom = {
   title: "自然課",
@@ -96,5 +96,27 @@ describe("全班作品匯出", () => {
 
     expect(renderPage).toHaveBeenCalledWith(expect.objectContaining({ studentText: { text: "文字答案", scrollTop: 0 } }));
     expect(result).toMatchObject({ exportedStudents: 1, pageCount: 1, emptyStudents: [] });
+  });
+
+  it("只有便條貼的頁面也會壓平匯出", async () => {
+    const renderPage = vi.fn(async () => new Blob(["png"]));
+    const stickyNotes = [{ id: "note-1", text: "老師提醒", color: "yellow", x: .1, y: .1, width: .3, height: .2 }];
+    const result = await exportClassroomZip({
+      classroom: { title: "課堂", boardPages: { main: { id: "main", order: 0 } } },
+      students: [{ id: "student-1", boardToken: "token-1", seatNumber: "01", displayName: "王小明" }],
+      loadPageLayers: async () => ({ studentStrokes: [], studentText: null, teacherStrokes: [], stickyNotes }),
+      renderPage,
+      zipBuilder: async () => new Blob(["zip"])
+    });
+    expect(renderPage).toHaveBeenCalledWith(expect.objectContaining({ stickyNotes }));
+    expect(result).toMatchObject({ exportedStudents: 1, pageCount: 1 });
+  });
+
+  it("底圖依設定位置壓平到 PNG 畫布", async () => {
+    const fileId = "1AbCdEfGhIjKlMnOpQrStUvWxYz234567";
+    const background = { sourceUrl: `https://drive.google.com/file/d/${fileId}/view`, imageUrl: `https://drive.google.com/thumbnail?id=${fileId}&sz=w2000`, scale: .5, x: .25, y: .75, updatedAt: 2, updatedBy: "teacher" };
+    const context = { drawImage: vi.fn() }, image = { naturalWidth: 800, naturalHeight: 400 };
+    await expect(drawPageBackground(context, background, 1600, 1200, async () => image)).resolves.toBe(true);
+    expect(context.drawImage).toHaveBeenCalledWith(image, 0, 700, 800, 400);
   });
 });

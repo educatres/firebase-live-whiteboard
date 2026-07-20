@@ -49,15 +49,17 @@ export async function hasAnyAnswers(token, pageIds = [MAIN_PAGE_ID]) {
   return results.some(Boolean);
 }
 export async function getBoardPageLayers(token, pageId = MAIN_PAGE_ID) {
-  const [studentSnapshot, teacherSnapshot, textSnapshot] = await Promise.all([
+  const [studentSnapshot, teacherSnapshot, textSnapshot, stickySnapshot] = await Promise.all([
     get(ref(database, `boards/${token}/${boardLayerPath(pageId, "studentStrokes")}`)),
     get(ref(database, `boards/${token}/${boardLayerPath(pageId, "teacherStrokes")}`)),
-    get(ref(database, `boards/${token}/${boardLayerPath(pageId, "studentText")}`))
+    get(ref(database, `boards/${token}/${boardLayerPath(pageId, "studentText")}`)),
+    get(ref(database, `boards/${token}/${boardLayerPath(pageId, "stickyNotes")}`))
   ]);
   return {
     studentStrokes: Object.values(studentSnapshot.val() || {}),
     teacherStrokes: Object.values(teacherSnapshot.val() || {}),
-    studentText: textSnapshot.val()
+    studentText: textSnapshot.val(),
+    stickyNotes: Object.values(stickySnapshot.val() || {})
   };
 }
 export async function createStickyNote(token, note, pageId = MAIN_PAGE_ID) {

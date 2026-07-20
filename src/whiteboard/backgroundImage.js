@@ -43,6 +43,21 @@ export function normalizeBackgroundImage(value) {
   };
 }
 
+export function backgroundImageDrawRect(value, imageWidth, imageHeight, width = 1600, height = 1200) {
+  const background = normalizeBackgroundImage(value);
+  const naturalWidth = Number(imageWidth), naturalHeight = Number(imageHeight);
+  if (!background || !(naturalWidth > 0) || !(naturalHeight > 0)) return null;
+  const boxWidth = width * background.scale, boxHeight = height * background.scale;
+  const imageScale = Math.min(boxWidth / naturalWidth, boxHeight / naturalHeight);
+  const drawWidth = naturalWidth * imageScale, drawHeight = naturalHeight * imageScale;
+  return {
+    x: background.x * width - drawWidth / 2,
+    y: background.y * height - drawHeight / 2,
+    width: drawWidth,
+    height: drawHeight
+  };
+}
+
 export function showBackgroundImage(element, value) {
   const background = normalizeBackgroundImage(value);
   if (!background) {

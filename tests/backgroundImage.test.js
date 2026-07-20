@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { googleDriveFileId, normalizeBackgroundImage, normalizeBackgroundPosition, normalizeBackgroundScale, normalizeGoogleDriveImageUrl, showBackgroundImage } from "../src/whiteboard/backgroundImage.js";
+import { backgroundImageDrawRect, googleDriveFileId, normalizeBackgroundImage, normalizeBackgroundPosition, normalizeBackgroundScale, normalizeGoogleDriveImageUrl, showBackgroundImage } from "../src/whiteboard/backgroundImage.js";
 import { boardPagesMap, normalizeBoardPages } from "../src/whiteboard/pages.js";
 
 const fileId = "1AbCdEfGhIjKlMnOpQrStUvWxYz234567";
@@ -40,5 +40,10 @@ describe("Google Drive 白板底圖", () => {
     showBackgroundImage(element, { sourceUrl: `https://drive.google.com/file/d/${fileId}/view`, imageUrl: `https://drive.google.com/thumbnail?id=${fileId}&sz=w2000`, scale: .45, x: .25, y: .7, updatedAt: 2, updatedBy: "teacher" });
     expect(Object.fromEntries(properties)).toEqual({ "--background-size": "45%", "--background-x": "25%", "--background-y": "70%" });
     expect(element.hidden).toBe(false);
+  });
+
+  it("匯出時依白板位置與 object-fit contain 計算底圖範圍", () => {
+    const background = { sourceUrl: `https://drive.google.com/file/d/${fileId}/view`, imageUrl: `https://drive.google.com/thumbnail?id=${fileId}&sz=w2000`, scale: .5, x: .25, y: .75, updatedAt: 2, updatedBy: "teacher" };
+    expect(backgroundImageDrawRect(background, 800, 400, 1600, 1200)).toEqual({ x: 0, y: 700, width: 800, height: 400 });
   });
 });
