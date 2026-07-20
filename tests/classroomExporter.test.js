@@ -116,7 +116,9 @@ describe("全班作品匯出", () => {
     const fileId = "1AbCdEfGhIjKlMnOpQrStUvWxYz234567";
     const background = { sourceUrl: `https://drive.google.com/file/d/${fileId}/view`, imageUrl: `https://drive.google.com/thumbnail?id=${fileId}&sz=w2000`, scale: .5, x: .25, y: .75, updatedAt: 2, updatedBy: "teacher" };
     const context = { drawImage: vi.fn() }, image = { naturalWidth: 800, naturalHeight: 400 };
-    await expect(drawPageBackground(context, background, 1600, 1200, async () => image)).resolves.toBe(true);
+    const loadImage = vi.fn(async () => image);
+    await expect(drawPageBackground(context, background, 1600, 1200, loadImage)).resolves.toBe(true);
+    expect(loadImage).toHaveBeenCalledWith(`https://lh3.googleusercontent.com/d/${fileId}=w2000`);
     expect(context.drawImage).toHaveBeenCalledWith(image, 0, 700, 800, 400);
   });
 });

@@ -43,6 +43,12 @@ export function normalizeBackgroundImage(value) {
   };
 }
 
+export function googleDriveCanvasImageUrl(value) {
+  const background = normalizeBackgroundImage(value);
+  const id = googleDriveFileId(background?.sourceUrl);
+  return id ? `https://lh3.googleusercontent.com/d/${id}=w2000` : null;
+}
+
 export function backgroundImageDrawRect(value, imageWidth, imageHeight, width = 1600, height = 1200) {
   const background = normalizeBackgroundImage(value);
   const naturalWidth = Number(imageWidth), naturalHeight = Number(imageHeight);

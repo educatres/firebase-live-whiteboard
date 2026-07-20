@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { backgroundImageDrawRect, googleDriveFileId, normalizeBackgroundImage, normalizeBackgroundPosition, normalizeBackgroundScale, normalizeGoogleDriveImageUrl, showBackgroundImage } from "../src/whiteboard/backgroundImage.js";
+import { backgroundImageDrawRect, googleDriveCanvasImageUrl, googleDriveFileId, normalizeBackgroundImage, normalizeBackgroundPosition, normalizeBackgroundScale, normalizeGoogleDriveImageUrl, showBackgroundImage } from "../src/whiteboard/backgroundImage.js";
 import { boardPagesMap, normalizeBoardPages } from "../src/whiteboard/pages.js";
 
 const fileId = "1AbCdEfGhIjKlMnOpQrStUvWxYz234567";
@@ -9,6 +9,12 @@ describe("Google Drive 白板底圖", () => {
     expect(googleDriveFileId(`https://drive.google.com/file/d/${fileId}/view?usp=sharing`)).toBe(fileId);
     expect(googleDriveFileId(`https://drive.google.com/open?id=${fileId}`)).toBe(fileId);
     expect(normalizeGoogleDriveImageUrl(`https://drive.google.com/file/d/${fileId}/view`).imageUrl).toBe(`https://drive.google.com/thumbnail?id=${fileId}&sz=w2000`);
+  });
+
+  it("匯出 Canvas 時使用允許跨網域讀取的 Google 圖片網址", () => {
+    const background = normalizeGoogleDriveImageUrl(`https://drive.google.com/file/d/${fileId}/view`);
+    expect(googleDriveCanvasImageUrl(background)).toBe(`https://lh3.googleusercontent.com/d/${fileId}=w2000`);
+    expect(googleDriveCanvasImageUrl(null)).toBeNull();
   });
 
   it("拒絕非 Google Drive 網址並限制縮放範圍", () => {

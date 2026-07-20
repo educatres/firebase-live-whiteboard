@@ -3,7 +3,7 @@ import { getBoardPageLayers } from "../firebase/boardRepository.js";
 import { normalizeBoardPages } from "../whiteboard/pages.js";
 import { createStoredZip } from "../utils/zip.js";
 import { drawStudentText, hasStudentText } from "../text/StudentTextLayer.js";
-import { backgroundImageDrawRect, normalizeBackgroundImage } from "../whiteboard/backgroundImage.js";
+import { backgroundImageDrawRect, googleDriveCanvasImageUrl, normalizeBackgroundImage } from "../whiteboard/backgroundImage.js";
 import { drawStickyNotes, hasStickyNotes, stickyNoteValues } from "../notes/StickyNotesLayer.js";
 
 export const MAX_EXPORT_BYTES = 250 * 1024 * 1024;
@@ -39,7 +39,8 @@ export function loadCanvasImage(url) {
 export async function drawPageBackground(context, value, width = 1600, height = 1200, loadImage = loadCanvasImage) {
   const background = normalizeBackgroundImage(value);
   if (!background) return false;
-  const image = await loadImage(background.imageUrl);
+  const imageUrl = googleDriveCanvasImageUrl(background);
+  const image = await loadImage(imageUrl);
   const rect = backgroundImageDrawRect(background, image.naturalWidth || image.width, image.naturalHeight || image.height, width, height);
   if (!rect) throw new Error("無法計算底圖匯出尺寸。");
   context.drawImage(image, rect.x, rect.y, rect.width, rect.height);
