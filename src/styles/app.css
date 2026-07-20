@@ -341,6 +341,10 @@ button:disabled {
 .debug-key {
   font-variant-numeric: tabular-nums;
 }
+.debug-expiry {
+  color: #795d00;
+  font-variant-numeric: tabular-nums;
+}
 .all-class-list .empty,
 .all-class-list > .muted {
   margin: 0;
