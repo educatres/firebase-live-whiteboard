@@ -20,9 +20,9 @@ export async function listAllClasses() {
   const value = (await get(ref(database, "publicClasses"))).val() || {};
   return Object.entries(value).map(([id, classroom]) => ({ id, ...classroom })).sort((a,b) => b.updatedAt-a.updatedAt);
 }
-export async function listPublicClassKeys() {
+export async function listPublicClassDebugRows() {
   const value = (await get(ref(database, "publicClasses"))).val() || {};
-  return Object.keys(value).sort();
+  return Object.entries(value).map(([key, classroom]) => ({ key, title: String(classroom?.title || "") })).sort((a,b) => a.key.localeCompare(b.key));
 }
 export function publicClassroom(classroom) {
   const createdAt = Number(classroom.createdAt);
