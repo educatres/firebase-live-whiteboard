@@ -200,15 +200,15 @@ button:disabled {
   display: grid;
   grid-template-columns: 1.4fr 0.6fr;
   align-items: center;
-  min-height: 370px;
-  padding: clamp(2rem, 6vw, 5rem);
+  min-height: 185px;
+  padding: clamp(1rem, 3vw, 2.5rem);
   border-radius: 28px;
   background: linear-gradient(135deg, #173f5f, #20639b);
   color: #fff;
   box-shadow: var(--shadow);
 }
 .hero h1 {
-  font-size: clamp(2.3rem, 6vw, 4.8rem);
+  font-size: clamp(1.15rem, 3vw, 2.4rem);
   line-height: 1.05;
   margin: 0.2rem 0 1rem;
 }
@@ -221,13 +221,13 @@ button:disabled {
   margin-top: 1rem;
 }
 .hero-art {
-  width: min(220px, 30vw);
+  width: min(110px, 15vw);
   aspect-ratio: 1;
   border-radius: 45% 55% 55% 45%;
   display: grid;
   place-items: center;
   background: rgba(255, 255, 255, 0.12);
-  font-size: 7rem;
+  font-size: 3.5rem;
   transform: rotate(-8deg);
 }
 .eyebrow {
